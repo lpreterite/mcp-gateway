@@ -14,7 +14,7 @@ import { setTimeout } from "timers/promises";
 const sleep = promisify(setTimeout);
 
 // ==================== 配置 ====================
-const GATEWAY_URL = "http://localhost:3000";
+const GATEWAY_URL = "http://localhost:4298";
 const HEALTH_URL = `${GATEWAY_URL}/health`;
 const TOOLS_URL = `${GATEWAY_URL}/tools`;
 const CALL_URL = `${GATEWAY_URL}/tools/call`;

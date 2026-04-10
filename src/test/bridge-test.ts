@@ -11,7 +11,7 @@ import { StdioBridge } from "../stdio-bridge/bridge.js";
 import type { JsonRpcRequest, BridgeConfig } from "../stdio-bridge/types.js";
 
 // ==================== 配置 ====================
-const GATEWAY_URL = "http://localhost:3000";
+const GATEWAY_URL = "http://localhost:4298";
 
 // ==================== 工具函数 ====================
 function log(label: string, message: string) {
@@ -59,11 +59,11 @@ function testTypeDefinitions(): boolean {
 
     // 验证 BridgeConfig 类型
     const config: BridgeConfig = {
-      gatewayUrl: "http://localhost:3000/sse",
+      gatewayUrl: "http://localhost:4298/sse",
       stdioMode: true,
     };
 
-    if (config.gatewayUrl !== "http://localhost:3000/sse") {
+    if (config.gatewayUrl !== "http://localhost:4298/sse") {
       log("TEST", "✗ BridgeConfig.gatewayUrl 类型错误");
       return false;
     }
@@ -379,7 +379,7 @@ async function testBridgeCallTool(): Promise<boolean> {
 async function main() {
   logSection("Stdio Bridge 单元测试");
 
-  console.log("\n注意: 集成测试需要 Gateway 运行在 localhost:3000");
+  console.log("\n注意: 集成测试需要 Gateway 运行在 localhost:4298");
   console.log(`Gateway URL: ${GATEWAY_URL}`);
   console.log("如需启动 Gateway，请运行: npm run gateway\n");
 
@@ -396,7 +396,7 @@ async function main() {
   // 集成测试（需要 Gateway 运行）
   let gatewayAvailable = false;
   try {
-    const response = await fetch("http://localhost:3000/health");
+    const response = await fetch("http://localhost:4298/health");
     gatewayAvailable = response.ok;
   } catch {
     // Gateway 不可用

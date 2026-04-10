@@ -97,13 +97,13 @@ npm start
 
 ```bash
 # 健康检查
-curl http://localhost:3000/health
+curl http://localhost:4298/health
 
 # 列出工具
-curl http://localhost:3000/tools
+curl http://localhost:4298/tools
 
 # 调用工具
-curl -X POST http://localhost:3000/tools/call \
+curl -X POST http://localhost:4298/tools/call \
   -H "Content-Type: application/json" \
   -d '{"name":"minimax_understand_image","arguments":{"image_source":"..."}}'
 ```
@@ -118,17 +118,17 @@ curl -X POST http://localhost:3000/tools/call \
    ```bash
    npm run gateway
    ```
-   预期：看到 `MCP Gateway listening on http://0.0.0.0:3000`
+   预期：看到 `MCP Gateway listening on http://0.0.0.0:4298`
 
 2. **检查健康状态**
    ```bash
-   curl http://localhost:3000/health
+   curl http://localhost:4298/health
    ```
    预期：返回 `{ "status": "ok", "sessions": 0, "pool": {...} }`
 
 3. **列出工具**
    ```bash
-   curl http://localhost:3000/tools
+   curl http://localhost:4298/tools
    ```
    预期：返回已注册的工具列表
 
@@ -144,7 +144,7 @@ curl -X POST http://localhost:3000/tools/call \
    ```bash
    # 并发 10 个请求
    for i in {1..10}; do
-     curl -X POST http://localhost:3000/tools/call \
+     curl -X POST http://localhost:4298/tools/call \
        -H "Content-Type: application/json" \
        -d '{"name":"minimax_web_search","arguments":{"query":"test"}}' &
    done

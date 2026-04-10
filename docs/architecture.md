@@ -237,7 +237,7 @@ Claude Desktop (stdio)
        ▼
 ┌──────────────────────────────────────┐
 │         MCP Gateway                  │
-│         (localhost:3000)             │
+│         (localhost:4298)             │
 └──────────────────────────────────────┘
 ```
 
@@ -247,7 +247,7 @@ Claude Desktop (stdio)
 node dist/stdio-bridge/index.js
 
 # 指定 Gateway URL
-node dist/stdio-bridge/index.js http://localhost:3000/sse
+node dist/stdio-bridge/index.js http://localhost:4298/sse
 
 # 或使用 npm script
 npm run dev:bridge
@@ -266,7 +266,7 @@ npm run dev:bridge
 {
   "gateway": {
     "host": "0.0.0.0",
-    "port": 3000,
+    "port": 4298,
     "cors": true
   },
   "pool": {
@@ -370,18 +370,18 @@ npm test -- mapper
 **1. 启动 Gateway：**
 ```bash
 npm run dev
-# 验证输出: [gateway] MCP Gateway listening on http://0.0.0.0:3000
+# 验证输出: [gateway] MCP Gateway listening on http://0.0.0.0:4298
 ```
 
 **2. 健康检查：**
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:4298/health
 # 预期: {"status":"ok","sessions":0,"pool":{...}}
 ```
 
 **3. 列出工具：**
 ```bash
-curl http://localhost:3000/tools
+curl http://localhost:4298/tools
 # 预期: {"tools":[...]}
 ```
 

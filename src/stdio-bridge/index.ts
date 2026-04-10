@@ -4,7 +4,7 @@ import { StdioBridge } from "./bridge.js";
 import type { JsonRpcRequest, BridgeConfig } from "./types.js";
 
 // Default gateway URL
-const DEFAULT_GATEWAY_URL = "http://localhost:3000/sse";
+const DEFAULT_GATEWAY_URL = "http://localhost:4298/sse";
 
 /**
  * Stdio Bridge Entry Point

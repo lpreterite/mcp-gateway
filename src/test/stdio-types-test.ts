@@ -149,11 +149,11 @@ function testBridgeConfig(): boolean {
 
   try {
     const config: BridgeConfig = {
-      gatewayUrl: "http://localhost:3000/sse",
+      gatewayUrl: "http://localhost:4298/sse",
       stdioMode: true,
     };
 
-    if (config.gatewayUrl !== "http://localhost:3000/sse") {
+    if (config.gatewayUrl !== "http://localhost:4298/sse") {
       log("TEST", "✗ gatewayUrl 不正确");
       return false;
     }

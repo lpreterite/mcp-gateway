@@ -112,7 +112,7 @@ poolSize: 3  // 默认
 {
   "gateway": {
     "host": "0.0.0.0",
-    "port": 3000,
+    "port": 4298,
     "cors": true
   },
   "pool": {
@@ -157,7 +157,7 @@ poolSize: 3  // 默认
 {
   "mcp": {
     "gateway": {
-      "url": "http://localhost:3000/sse",
+      "url": "http://localhost:4298/sse",
       "enabled": true,
       "type": "remote"
     }
@@ -197,7 +197,7 @@ npm start
 ### 健康检查
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:4298/health
 ```
 
 ## 已知问题

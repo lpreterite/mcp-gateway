@@ -241,7 +241,7 @@ HTTP 服务器配置。
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | host | string | "0.0.0.0" | 监听地址 |
-| port | number | 3000 | 监听端口 |
+| port | number | 4298 | 监听端口 |
 | cors | boolean | true | 是否启用 CORS |
 
 ### pool

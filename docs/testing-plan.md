@@ -17,8 +17,8 @@
 
 测试使用的默认 Gateway 配置:
 - Host: `0.0.0.0`
-- Port: `3000`
-- Gateway URL: `http://localhost:3000/sse`
+- Port: `4298`
+- Gateway URL: `http://localhost:4298/sse`
 
 ---
 
@@ -103,12 +103,12 @@ npx tsx src/test/bridge-test.ts
 [gateway] Connecting to <server-name>...
 [gateway] Connected to <server-name>
 [gateway] Found M tools from <server-name>
-[gateway] MCP Gateway listening on http://0.0.0.0:3000
+[gateway] MCP Gateway listening on http://0.0.0.0:4298
 ```
 
 **验证命令:**
 ```bash
-curl -s http://localhost:3000/health | jq .
+curl -s http://localhost:4298/health | jq .
 ```
 
 **预期响应:**
@@ -130,7 +130,7 @@ curl -s http://localhost:3000/health | jq .
 
 **步骤:**
 ```bash
-curl -s http://localhost:3000/tools | jq .
+curl -s http://localhost:4298/tools | jq .
 ```
 
 **预期结果:**
@@ -154,7 +154,7 @@ curl -s http://localhost:3000/tools | jq .
 
 **步骤:**
 ```bash
-curl -s -X POST http://localhost:3000/tools/call \
+curl -s -X POST http://localhost:4298/tools/call \
   -H "Content-Type: application/json" \
   -d '{
     "name": "<gateway-tool-name>",
@@ -174,7 +174,7 @@ curl -s -X POST http://localhost:3000/tools/call \
 1. 启动 Gateway: `npm run dev`
 2. 使用 curl 建立 SSE 连接:
    ```bash
-   curl -N http://localhost:3000/sse
+   curl -N http://localhost:4298/sse
    ```
 
 **预期结果:**
@@ -187,7 +187,7 @@ curl -s -X POST http://localhost:3000/tools/call \
 **目的:** 验证 stdio-bridge 能正确与 gateway 通信
 
 **前置条件:**
-- Gateway 运行在 `http://localhost:3000`
+- Gateway 运行在 `http://localhost:4298`
 - 至少配置了一个 MCP 服务器
 
 **步骤:**
@@ -200,7 +200,7 @@ npm run dev:bridge
 **预期日志:**
 ```
 [bridge] Starting MCP Gateway Stdio Bridge...
-[bridge] Gateway URL: http://localhost:3000/sse
+[bridge] Gateway URL: http://localhost:4298/sse
 [bridge] Connected to gateway
 [bridge] Available tools: tool1, tool2, ...
 ```
@@ -254,7 +254,7 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"<tool-name
 
 **验证命令:**
 ```bash
-curl -s http://localhost:3000/health | jq '.pool'
+curl -s http://localhost:4298/health | jq '.pool'
 ```
 
 ---
@@ -283,7 +283,7 @@ curl -s http://localhost:3000/health | jq '.pool'
   "mcpServers": {
     "gateway-bridge": {
       "command": "/path/to/node",
-      "args": ["/absolute/path/to/mcp-gateway/dist/stdio-bridge/index.js", "http://localhost:3000/sse"]
+      "args": ["/absolute/path/to/mcp-gateway/dist/stdio-bridge/index.js", "http://localhost:4298/sse"]
     }
   }
 }
@@ -321,7 +321,7 @@ curl -s http://localhost:3000/health | jq '.pool'
 ```bash
 # 并发发送 10 个请求
 for i in {1..10}; do
-  curl -s -X POST http://localhost:3000/tools/call \
+  curl -s -X POST http://localhost:4298/tools/call \
     -H "Content-Type: application/json" \
     -d '{"name":"<tool>","arguments":{}}' &
 done
@@ -342,7 +342,7 @@ wait
 **症状:** `[bridge] Failed to connect to gateway`
 
 **排查步骤:**
-1. 检查 Gateway 是否运行: `curl http://localhost:3000/health`
+1. 检查 Gateway 是否运行: `curl http://localhost:4298/health`
 2. 检查 Gateway URL 是否正确
 3. 检查网络连接
 4. 检查 CORS 配置
