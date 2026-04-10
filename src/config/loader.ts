@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { readFileSync, existsSync } from "fs";
+import { resolve, join } from "path";
+import { homedir } from "os";
 
 // Validation schemas
 export const ServerConfigSchema = z.object({
@@ -48,15 +49,61 @@ export const ConfigSchema = z.object({
 
 export type ValidatedConfig = z.infer<typeof ConfigSchema>;
 
+/**
+ * Find config file path with priority:
+ * 1. MCP_GATEWAY_CONFIG environment variable
+ * 2. ~/.config/mcp-gateway/config.json (global install)
+ * 3. ./config/servers.json (local development)
+ */
+function findConfigPath(): string | null {
+  // 1. Environment variable
+  const envPath = process.env.MCP_GATEWAY_CONFIG;
+  if (envPath && existsSync(envPath)) {
+    return envPath;
+  }
+
+  // 2. Global install config (~/.config/mcp-gateway/config.json)
+  const globalConfig = join(homedir(), ".config", "mcp-gateway", "config.json");
+  if (existsSync(globalConfig)) {
+    return globalConfig;
+  }
+
+  // 3. Local development config
+  const localConfig = resolve(process.cwd(), "config/servers.json");
+  if (existsSync(localConfig)) {
+    return localConfig;
+  }
+
+  return null;
+}
+
 export function loadConfig(configPath?: string): ValidatedConfig {
-  const path = configPath || resolve(process.cwd(), "config/servers.json");
+  let path: string;
+
+  if (configPath) {
+    path = configPath;
+  } else {
+    const foundPath = findConfigPath();
+    if (!foundPath) {
+      throw new Error(
+        `Config file not found. Please create one of:\n` +
+        `  - ~/.config/mcp-gateway/config.json (global install)\n` +
+        `  - ./config/servers.json (local development)\n` +
+        `  - Or set MCP_GATEWAY_CONFIG environment variable`
+      );
+    }
+    path = foundPath;
+  }
+
+  console.error(`[config] Loading config from: ${path}`);
+
   const content = readFileSync(path, "utf-8");
   const raw = JSON.parse(content);
 
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const errors = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
-    throw new Error(`Invalid configuration:\n${errors.join("\n")}`);
+    throw new Error(`Invalid configuration at ${path}:\n${errors.join("\n")}`);
   }
 
   return result.data;

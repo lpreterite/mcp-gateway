@@ -67,58 +67,58 @@ MCP Gateway 是一款专为 AI 时代打造的基础设施层工具：
 **方式一：npm 全局安装（推荐）**
 ```bash
 npm install -g git+https://github.com/packy/mcp-gateway.git
+
+# 首次配置
+mkdir -p ~/.config/mcp-gateway
+cp /usr/local/lib/node_modules/mcp-gateway/config/servers.example.json ~/.config/mcp-gateway/config.json
+# 编辑 ~/.config/mcp-gateway/config.json 添加你的 API keys
+
+# 启动
+mcp-gateway
 ```
 
 **方式二：npx 直接运行**
 ```bash
+# 需要先配置
+mkdir -p ~/.config/mcp-gateway
+npx git+https://github.com/packy/mcp-gateway.git -- copy-config ~/.config/mcp-gateway/config.json
+# 编辑 ~/.config/mcp-gateway/config.json
+
+# 运行
 npx git+https://github.com/packy/mcp-gateway.git
 ```
 
-**方式三：本地安装**
+**方式三：本地安装开发**
 ```bash
 git clone https://github.com/packy/mcp-gateway.git
 cd mcp-gateway
-npm install
-npm run build
+npm install && npm run build
+
+# 首次配置
+cp config/servers.example.json config/servers.json
+# 编辑 config/servers.json
+
+# 启动
+npm run dev
 ```
 
-### 1. 安装依赖
+### 1. 配置
 
+**配置路径优先级：**
+1. `MCP_GATEWAY_CONFIG` 环境变量
+2. `~/.config/mcp-gateway/config.json` (全局安装)
+3. `./config/servers.json` (本地开发)
+
+### 2. 启动网关
+
+**全局安装：**
 ```bash
-npm install
+mcp-gateway
 ```
 
-### 2. 配置服务器
-
-编辑 `config/servers.json`:
-
-```json
-{
-  "gateway": {
-    "host": "0.0.0.0",
-    "port": 3000,
-    "cors": true
-  },
-  "pool": {
-    "minConnections": 1,
-    "maxConnections": 5
-  },
-  "servers": [
-    {
-      "name": "minimax",
-      "type": "local",
-      "command": ["uvx", "minimax-coding-plan-mcp"],
-      "enabled": true,
-      "poolSize": 3
-    }
-  ],
-  "mapping": {
-    "minimax": { "prefix": "minimax", "stripPrefix": true }
-  }
-}
-```
-
-### 3. 启动网关
+**本地开发：**
+```bash
+npm run dev
 
 ```bash
 # 开发模式
