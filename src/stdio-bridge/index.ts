@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { StdioBridge } from "./bridge.js";
 import type { JsonRpcRequest, BridgeConfig } from "./types.js";
 

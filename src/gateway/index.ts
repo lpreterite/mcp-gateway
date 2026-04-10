@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { loadConfig } from "../config/loader.js";
 import { MCPConnectionPool } from "./pool.js";
 import { ToolRegistry } from "./registry.js";

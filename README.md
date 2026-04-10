@@ -20,34 +20,37 @@ MCP Gateway 是一款专为 AI 时代打造的基础设施层工具：
 ## 架构图
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      MCP Gateway (HTTP Server)                   │
-│                      AI Agent 的 MCP 服务中枢                      │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
-│  │ HTTP/SSE     │  │ Connection Pool  │  │ Tool Registry    │  │
-│  │ Transport    │  │ Manager          │  │ (Centralized)    │  │
-│  │ (AI Agent    │  │ (复用 MCP 连接)   │  │ (工具映射+过滤)  │  │
-│  │  连接)       │  │                  │  │                  │  │
-│  └──────┬───────┘  └────────┬─────────┘  └──────────────────┘  │
-│         │                   │                                   │
-│         │           ┌───────┴─────────┐                        │
-│         │           │  MCP Server Pool │                        │
-│         │           │  ┌─────────────┐ │                        │
-│         │           │  │ minimax    │ │ (x N connections)      │
-│         │           │  │ zai-mcp    │ │                        │
-│         │           │  │ searxng    │ │                        │
-│         │           │  └─────────────┘ │                        │
-└─────────┼─────────────────────────────────────────────────────────┘
-          │
-          │ HTTP/SSE / REST
-          │
-  ┌───────┴───────┐
-  │   AI Agents     │
-  │  (OpenCode,    │
-  │   Claude App,  │
-  │   其他 AI 工具)  │
-  └───────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        MCP Gateway System                             │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │                    MCP Gateway (HTTP Server)                     │ │
+│  │                                                                 │ │
+│  │  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐ │ │
+│  │  │ HTTP/SSE     │  │ Connection Pool  │  │ Tool Registry    │ │ │
+│  │  │ Transport    │  │ Manager          │  │ (Centralized)    │ │ │
+│  │  └──────┬───────┘  └────────┬─────────┘  └──────────────────┘ │ │
+│  │         │                   │                                  │ │
+│  │         │           ┌───────┴─────────┐                        │ │
+│  │         │           │  MCP Server Pool │                        │ │
+│  │         │           │  ┌─────────────┐ │                        │ │
+│  │         │           │  │ minimax    │ │ (x N connections)    │ │
+│  │         │           │  │ zai-mcp    │ │                        │ │
+│  │         │           │  │ searxng    │ │                        │ │
+│  │         │           │  └─────────────┘ │                        │ │
+│  └─────────┼───────────┼───────────────────┼──────────────────────┘ │
+│            │           │                   │                          │
+│            │ HTTP/SSE  │                   │                          │
+│            │           │                   │                          │
+│  ┌─────────┴───────────┴───────────────────┴────────────┐          │
+│  │                    Stdio Bridge (独立进程)              │          │
+│  │  Claude Desktop ─── stdio ───> Bridge ─── HTTP/SSE    │          │
+│  └──────────────────────┬─────────────────────────────────┘          │
+│                         │ stdio                                       │
+│  ┌──────────────────────┴────────────────────┐                       │
+│  │         Claude Desktop (仅支持 stdio)      │                       │
+│  └───────────────────────────────────────────┘                       │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 核心特性
@@ -58,6 +61,26 @@ MCP Gateway 是一款专为 AI 时代打造的基础设施层工具：
 - **REST API**: 提供 HTTP 端点用于简单工具调用
 
 ## 快速开始
+
+### 安装方式
+
+**方式一：npm 全局安装（推荐）**
+```bash
+npm install -g git+https://github.com/packy/mcp-gateway.git
+```
+
+**方式二：npx 直接运行**
+```bash
+npx git+https://github.com/packy/mcp-gateway.git
+```
+
+**方式三：本地安装**
+```bash
+git clone https://github.com/packy/mcp-gateway.git
+cd mcp-gateway
+npm install
+npm run build
+```
 
 ### 1. 安装依赖
 
@@ -193,12 +216,18 @@ src/
 │   ├── pool.ts        # 连接池管理器
 │   ├── registry.ts    # 工具注册表
 │   └── mapper.ts      # 工具名映射
+├── stdio-bridge/       # Stdio 桥接器 (支持 Claude Desktop)
+│   ├── index.ts       # stdio 入口
+│   ├── bridge.ts      # 桥接逻辑
+│   └── types.ts       # 类型定义
 ├── mcp/
 │   ├── client.ts      # MCP 客户端封装
 │   └── types.ts       # 类型定义
 ├── config/
-│   ├── loader.ts      # 配置文件加载
-│   └── validator.ts   # 配置校验
+│   └── loader.ts      # 配置文件加载
+└── test/
+    ├── bridge-test.ts  # Bridge 测试
+    └── stdio-types-test.ts  # 类型测试
 ```
 
 ## 配置说明

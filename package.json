@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "start": "node dist/gateway/index.js",
     "dev": "tsx src/gateway/index.ts",
     "gateway": "tsx src/gateway/index.ts",
@@ -21,6 +22,10 @@
   },
   "keywords": ["mcp", "opencode", "gateway", "sse"],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/packy/mcp-gateway.git"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "cors": "^2.8.5",
