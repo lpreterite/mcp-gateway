@@ -1,0 +1,38 @@
+{
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "cors": true
+  },
+  "pool": {
+    "minConnections": 1,
+    "maxConnections": 5,
+    "acquireTimeout": 10000,
+    "idleTimeout": 60000,
+    "maxRetries": 3
+  },
+  "servers": [
+    {
+      "name": "minimax",
+      "type": "local",
+      "command": ["uvx", "minimax-coding-plan-mcp"],
+      "enabled": true,
+      "poolSize": 3
+    },
+    {
+      "name": "searxng",
+      "type": "local",
+      "command": ["mcp-searxng"],
+      "enabled": false,
+      "env": {
+        "SEARXNG_URL": "http://localhost:8889"
+      },
+      "poolSize": 2
+    }
+  ],
+  "mapping": {
+    "minimax": { "prefix": "minimax", "stripPrefix": true },
+    "searxng": { "prefix": "searxng", "stripPrefix": true }
+  },
+  "toolFilters": {}
+}
