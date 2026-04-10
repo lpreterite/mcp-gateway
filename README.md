@@ -109,6 +109,8 @@ npm run dev
 2. `~/.config/mcp-gateway/config.json` (全局安装)
 3. `./config/servers.json` (本地开发)
 
+**默认端口：** `4298`
+
 ### 2. 启动网关
 
 **全局安装：**

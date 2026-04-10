@@ -204,7 +204,7 @@ export class MCPGatewayServer {
   }
 
   async start(port?: number): Promise<void> {
-    const portToUse = port ?? this.config.gateway?.port ?? 3000;
+    const portToUse = port ?? this.config.gateway?.port ?? 4298;
     const host = this.config.gateway?.host ?? "0.0.0.0";
 
     return new Promise((resolve) => {
