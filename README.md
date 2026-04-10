@@ -99,7 +99,7 @@ npm install
 
 ```bash
 # 开发模式
-npm run gateway
+npm run dev
 
 # 生产模式
 npm run build
@@ -111,10 +111,27 @@ npm start
 ### SSE 连接（主要协议）
 
 ```
-GET /sse?clientId=<client_id>
+GET /sse
 ```
 
-建立持久 SSE 连接，接收工具调用结果和服务器通知。
+建立持久 SSE 连接，接收工具调用结果和服务器通知。SSE 端点同时支持 GET（建立流）和 POST（发送消息）。
+
+### 消息发送
+
+```
+POST /messages?sessionId=<session_id>
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "minimax_web_search",
+    "arguments": { "query": "..." }
+  }
+}
+```
 
 ### REST API（辅助协议）
 

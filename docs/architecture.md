@@ -48,37 +48,45 @@
 
 MCP Gateway 是一个**集中式 MCP 服务器管理服务**，允许多个远程客户端通过 HTTP/SSE 连接并共享 MCP 服务器连接池。这解决了为每个客户端连接生成新 MCP 服务器进程的问题。
 
-## 架构图
+## 整体架构图
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      MCP Gateway (HTTP Server)                   │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
-│  │ HTTP/SSE     │  │ Connection Pool  │  │ Tool Registry    │  │
-│  │ Transport    │  │ Manager          │  │ (Centralized)    │  │
-│  │ (客户端连接)  │  │ (复用 MCP 连接)   │  │ (工具映射+过滤)  │  │
-│  └──────┬───────┘  └────────┬─────────┘  └──────────────────┘  │
-│         │                   │                                   │
-│         │           ┌───────┴─────────┐                        │
-│         │           │  MCP Server Pool │                        │
-│         │           │  ┌─────────────┐ │                        │
-│         │           │  │ minimax    │ │ (x N connections)      │
-│         │           │  │ zai-mcp    │ │                        │
-│         │           │  │ searxng    │ │                        │
-│         │           │  └─────────────┘ │                        │
-│         │           └───────────────────┘                        │
-└─────────┼─────────────────────────────────────────────────────────┘
-          │
-          │ HTTP/SSE
-          │
-  ┌───────┴───────┐
-  │  多个远程客户端  │
-  │  (OpenCode,   │
-  │   Claude App, │
-  │   其他 MCP    │
-  │   客户端)      │
-  └───────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        MCP Gateway System                            │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │                    MCP Gateway (HTTP Server)                     │  │
+│  │                                                                 │  │
+│  │  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐  │  │
+│  │  │ HTTP/SSE     │  │ Connection Pool  │  │ Tool Registry    │  │  │
+│  │  │ Transport    │  │ Manager          │  │ (Centralized)    │  │  │
+│  │  └──────┬───────┘  └────────┬─────────┘  └──────────────────┘  │  │
+│  │         │                   │                                  │  │
+│  │         │           ┌───────┴─────────┐                         │  │
+│  │         │           │  MCP Server Pool │                         │  │
+│  │         │           │  ┌─────────────┐ │                        │  │
+│  │         │           │  │ minimax    │ │ (x N connections)      │  │
+│  │         │           │  │ zai-mcp    │ │                        │  │
+│  │         │           │  │ searxng    │ │                        │  │
+│  │         │           │  └─────────────┘ │                        │  │
+│  └─────────┼───────────┼───────────────────┼────────────────────────┘  │
+│            │           │                   │                           │
+│            │ HTTP/SSE  │                   │                           │
+│            │           │                   │                           │
+│  ┌─────────┴───────────┴───────────────────┴────────────┐              │
+│  │                    Stdio Bridge                       │              │
+│  │                     (独立进程)                         │              │
+│  │  stdin ──> JSON-RPC ──> HTTP/SSE ──> Gateway ──> MCP  │              │
+│  │  stdout <── JSON-RPC <── HTTP/SSE <──────────────────┘ │              │
+│  │                                                        │              │
+│  │  用途: Claude Desktop 等仅支持 stdio 的客户端          │              │
+│  └────────────────────┬─────────────────────────────────┘              │
+│                       │ stdio                                           │
+│  ┌─────────────────────┴────────────────────┐                           │
+│  │         Claude Desktop                    │                           │
+│  │         (仅支持 stdio MCP 模式)           │                           │
+│  └───────────────────────────────────────────┘                           │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 核心组件
@@ -201,6 +209,55 @@ class MCPConnectionPool {
 2. **tool/list/result** - 可用工具列表
 3. **error** - 错误通知
 
+### 5. Stdio Bridge (`src/stdio-bridge/`)
+
+stdio Bridge 是一个**独立进程**，用于连接不支持 HTTP/SSE 的 MCP 客户端（如 Claude Desktop）到 Gateway。
+
+**组件：**
+- `index.ts` - stdio 入口点
+- `bridge.ts` - 桥接核心逻辑
+- `types.ts` - 类型定义
+
+**工作原理：**
+
+```
+Claude Desktop (stdio)
+       │
+       │ stdio (JSON-RPC)
+       ▼
+┌──────────────────────────────────────┐
+│        Stdio Bridge Process          │
+│                                      │
+│  1. 解析 stdin JSON-RPC 请求          │
+│  2. 通过 HTTP/SSE 转发到 Gateway     │
+│  3. 将 Gateway 响应通过 stdout 返回   │
+└──────────────────────────────────────┘
+       │
+       │ HTTP/SSE
+       ▼
+┌──────────────────────────────────────┐
+│         MCP Gateway                  │
+│         (localhost:3000)             │
+└──────────────────────────────────────┘
+```
+
+**启动方式：**
+```bash
+# 直接运行
+node dist/stdio-bridge/index.js
+
+# 指定 Gateway URL
+node dist/stdio-bridge/index.js http://localhost:3000/sse
+
+# 或使用 npm script
+npm run dev:bridge
+```
+
+**与 Gateway 的交互：**
+- 通过 `/sse` 建立 SSE 连接获取 sessionId
+- 通过 `/tools` 获取可用工具列表
+- 通过 `/messages?sessionId=xxx` 发送工具调用请求
+
 ## 配置参考
 
 ### servers.json
@@ -256,14 +313,18 @@ src/
 │   ├── pool.ts        # 连接池管理器
 │   ├── registry.ts    # 工具注册表
 │   └── mapper.ts      # 工具名映射
+├── stdio-bridge/      # Stdio 桥接器 (新增)
+│   ├── index.ts       # stdio 入口点
+│   ├── bridge.ts      # 桥接核心逻辑
+│   └── types.ts       # 类型定义
 ├── mcp/
 │   ├── client.ts      # MCP 客户端封装
 │   └── types.ts       # 类型定义
 ├── config/
-│   ├── loader.ts      # 配置加载器
-│   └── validator.ts   # 配置验证
-└── utils/
-    └── logger.ts      # 日志工具
+│   └── loader.ts      # 配置加载器
+└── test/
+    ├── direct-connection-test.ts
+    └── pool-test.ts
 ```
 
 ## 性能特性
@@ -274,6 +335,67 @@ src/
 | 连接复用率 | 预热后 100% |
 | 典型延迟 | < 100ms |
 | 每个 server 内存占用 | ~50MB 基础 + ~10MB/连接 |
+
+## 测试策略
+
+### 单元测试
+
+测试独立组件的功能：
+
+```bash
+# 测试配置加载
+npm test -- config
+
+# 测试工具注册表
+npm test -- registry
+
+# 测试工具映射器
+npm test -- mapper
+```
+
+### 集成测试
+
+测试组件间的交互：
+
+| 测试场景 | 说明 |
+|---------|------|
+| Gateway 启动 | 启动 gateway，验证配置加载和工具注册 |
+| 连接池行为 | 验证连接的创建、复用、释放 |
+| 工具调用 | 通过 REST API 调用工具，验证端到端流程 |
+| SSE 连接 | 建立 SSE 连接，验证实时消息推送 |
+| Stdio Bridge | 启动 bridge，验证与 gateway 的通信 |
+
+### 手动测试步骤
+
+**1. 启动 Gateway：**
+```bash
+npm run dev
+# 验证输出: [gateway] MCP Gateway listening on http://0.0.0.0:3000
+```
+
+**2. 健康检查：**
+```bash
+curl http://localhost:3000/health
+# 预期: {"status":"ok","sessions":0,"pool":{...}}
+```
+
+**3. 列出工具：**
+```bash
+curl http://localhost:3000/tools
+# 预期: {"tools":[...]}
+```
+
+**4. 启动 Stdio Bridge：**
+```bash
+npm run dev:bridge
+# 预期: [bridge] Connected to gateway
+#       [bridge] Available tools: ...
+```
+
+**5. 测试 Stdio 通信：**
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}' | node dist/stdio-bridge/index.js
+```
 
 ## 与旧架构的对比
 
