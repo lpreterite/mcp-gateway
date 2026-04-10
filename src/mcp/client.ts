@@ -64,7 +64,7 @@ export class MCPClientConnection {
     }
 
     const response = await this.client.listTools();
-    return response.tools || [];
+    return (response.tools || []) as Tool[];
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
@@ -77,7 +77,7 @@ export class MCPClientConnection {
       name,
       arguments: args,
     });
-    return response;
+    return response as ToolCallResult;
   }
 
   isConnected(): boolean {

@@ -20,12 +20,23 @@ export class MCPConnectionPool {
       this.active.set(server.name, new Set());
 
       const poolSize = server.poolSize ?? this.config.minConnections;
+      let successCount = 0;
+
       for (let i = 0; i < poolSize; i++) {
-        const client = await this.createConnection(server);
-        this.pools.get(server.name)!.push(client);
+        try {
+          const client = await this.createConnection(server);
+          this.pools.get(server.name)!.push(client);
+          successCount++;
+        } catch (error) {
+          console.warn(`[pool] Failed to create connection ${i + 1}/${poolSize} for ${server.name}:`, error instanceof Error ? error.message : error);
+        }
       }
 
-      console.log(`[pool] Initialized ${server.name} with ${poolSize} connections`);
+      if (successCount > 0) {
+        console.log(`[pool] Initialized ${server.name} with ${successCount}/${poolSize} connections`);
+      } else {
+        console.warn(`[pool] ${server.name} has no working connections, will retry on demand`);
+      }
     }
   }
 
@@ -59,11 +70,15 @@ export class MCPConnectionPool {
 
       // Check if we can create a new connection
       if (pool.length < maxConnections) {
-        const newClient = await this.createConnection(config);
-        pool.push(newClient);
-        activeSet.add(newClient);
-        newClient.touch();
-        return newClient;
+        try {
+          const newClient = await this.createConnection(config);
+          pool.push(newClient);
+          activeSet.add(newClient);
+          newClient.touch();
+          return newClient;
+        } catch (error) {
+          console.warn(`[pool] Failed to create new connection for ${serverName}:`, error instanceof Error ? error.message : error);
+        }
       }
 
       // Wait for a connection to become available
@@ -99,6 +114,13 @@ export class MCPConnectionPool {
     toolName: string,
     args: Record<string, unknown>
   ): Promise<ToolCallResult> {
+    const pool = this.pools.get(serverName);
+    if (!pool || pool.length === 0) {
+      return {
+        content: [{ type: "text", text: `Server ${serverName} is not available (no connections)` }],
+        isError: true,
+      };
+    }
     return this.execute(serverName, async (client) => {
       return client.callTool(toolName, args);
     });

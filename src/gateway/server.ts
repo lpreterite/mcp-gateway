@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import { z } from "zod";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { MCPConnectionPool } from "./pool.js";
 import { ToolRegistry } from "./registry.js";
 import { ToolMapper } from "./mapper.js";
@@ -22,18 +22,62 @@ const CallToolRequestSchema = z.object({
   }),
 });
 
-interface ClientSession {
-  transport: StreamableHTTPServerTransport;
+// Store transports by session ID
+const transports: Record<string, SSEServerTransport> = {};
+
+// Create a new MCP server instance for each session
+function createGatewayServer(
+  pool: MCPConnectionPool,
+  registry: ToolRegistry,
+  mapper: ToolMapper
+): Server {
+  const server = new Server(
+    { name: "mcp-gateway", version: "1.0.0" },
+    { capabilities: { tools: {} } }
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const tools = registry.getAllTools().map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema || { type: "object", properties: {} },
+      annotations: tool.annotations,
+    }));
+    return { tools };
+  });
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args = {} } = request.params;
+
+    try {
+      const tool = registry.getTool(name);
+      if (!tool) {
+        throw new Error(`Tool ${name} not found`);
+      }
+
+      const serverName = tool.serverName;
+      const originalName = mapper.getOriginalToolName(name, serverName) || tool.originalName;
+
+      const result = await pool.callTool(serverName, originalName, args as Record<string, unknown>);
+      return result as { content: Array<{ type: string; text?: string }>; isError?: boolean };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{ type: "text", text: `Error: ${message}` }],
+        isError: true,
+      };
+    }
+  });
+
+  return server;
 }
 
 export class MCPGatewayServer {
   private app: express.Application;
-  private mcpServer: Server;
   private pool: MCPConnectionPool;
   private registry: ToolRegistry;
   private mapper: ToolMapper;
   private config: ValidatedConfig;
-  private sessions = new Map<string, ClientSession>();
 
   constructor(
     config: ValidatedConfig,
@@ -50,102 +94,67 @@ export class MCPGatewayServer {
     this.app.use(cors());
     this.app.use(express.json());
 
-    this.mcpServer = new Server(
-      { name: "mcp-gateway", version: "1.0.0" },
-      { capabilities: { tools: {} } }
-    );
-
-    this.setupHandlers();
     this.setupRoutes();
   }
 
-  private setupHandlers(): void {
-    // Handle tools/list request
-    this.mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-      const tools = this.registry.getAllTools().map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema || { type: "object", properties: {} },
-        annotations: tool.annotations,
-      }));
-      console.log(`[gateway] tools/list called, returning ${tools.length} tools`);
-      return { tools };
-    });
-
-    // Handle tools/call request
-    this.mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args = {} } = request.params;
-      console.log(`[gateway] tools/call: ${name}`);
+  private setupRoutes(): void {
+    // SSE endpoint for establishing the stream (GET)
+    this.app.get("/sse", async (req: Request, res: Response) => {
+      console.log(`[gateway] SSE connection from ${req.ip}`);
 
       try {
-        const tool = this.registry.getTool(name);
-        if (!tool) {
-          throw new Error(`Tool ${name} not found`);
-        }
+        const transport = new SSEServerTransport("/messages", res, {
+          enableDnsRebindingProtection: false,
+        });
 
-        const serverName = tool.serverName;
-        const originalName = this.mapper.getOriginalToolName(name, serverName) || tool.originalName;
+        const sessionId = transport.sessionId;
+        transports[sessionId] = transport;
 
-        const result = await this.pool.callTool(serverName, originalName, args as Record<string, unknown>);
-        return result;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`[gateway] Tool call failed: ${message}`);
-        return {
-          content: [{ type: "text", text: `Error: ${message}` }],
-          isError: true,
+        transport.onclose = () => {
+          console.log(`[gateway] SSE transport closed for session ${sessionId}`);
+          delete transports[sessionId];
         };
+
+        const server = createGatewayServer(this.pool, this.registry, this.mapper);
+        await server.connect(transport);
+
+        console.log(`[gateway] Established SSE stream with session ID: ${sessionId}`);
+      } catch (error) {
+        console.error("[gateway] Error establishing SSE stream:", error);
+        if (!res.headersSent) {
+          res.status(500).send("Error establishing SSE stream");
+        }
       }
     });
-  }
 
-  private setupRoutes(): void {
-    // MCP endpoint using Streamable HTTP transport
-    this.app.post("/mcp", async (req: Request, res: Response) => {
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => `session-${Date.now()}`,
-      });
+    // Messages endpoint for receiving client JSON-RPC requests (POST)
+    this.app.post("/messages", async (req: Request, res: Response) => {
+      const sessionId = req.query.sessionId as string;
 
-      this.mcpServer.connect(transport).catch((err) => {
-        console.error("[gateway] Failed to connect transport:", err);
-      });
+      if (!sessionId) {
+        console.error("[gateway] No session ID provided in request URL");
+        res.status(400).send("Missing sessionId parameter");
+        return;
+      }
 
-      await transport.handleRequest(req, res, req.body);
+      const transport = transports[sessionId];
+      if (!transport) {
+        console.error(`[gateway] No active transport found for session ID: ${sessionId}`);
+        res.status(404).send("Session not found");
+        return;
+      }
+
+      try {
+        await transport.handlePostMessage(req, res, req.body);
+      } catch (error) {
+        console.error("[gateway] Error handling request:", error);
+        if (!res.headersSent) {
+          res.status(500).send("Error handling request");
+        }
+      }
     });
 
-    // SSE endpoint for client connections (GET for streaming)
-    this.app.get("/sse", async (req: Request, res: Response) => {
-      const clientId = (req.query.clientId as string) || `client-${Date.now()}`;
-
-      console.log(`[gateway] SSE connection from ${clientId}`);
-
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-      res.setHeader("Access-Control-Allow-Origin", "*");
-
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => clientId,
-      });
-
-      this.sessions.set(clientId, { transport });
-
-      await this.mcpServer.connect(transport);
-      await transport.handleRequest(req, res);
-
-      // Keep connection alive with heartbeat
-      const heartbeat = setInterval(() => {
-        res.write(`: heartbeat\n\n`);
-      }, 15000);
-
-      req.on("close", () => {
-        clearInterval(heartbeat);
-        this.sessions.delete(clientId);
-        console.log(`[gateway] SSE connection closed: ${clientId}`);
-      });
-    });
-
-    // REST endpoint for tool calls
+    // REST endpoint for tool calls (backward compatibility)
     this.app.post("/tools/call", async (req: Request, res: Response) => {
       const { name, arguments: args = {} } = req.body;
 
@@ -178,12 +187,12 @@ export class MCPGatewayServer {
       const stats = this.pool.getStats();
       res.json({
         status: "ok",
-        sessions: this.sessions.size,
+        sessions: Object.keys(transports).length,
         pool: stats,
       });
     });
 
-    // List all tools
+    // List all tools (REST)
     this.app.get("/tools", (_req: Request, res: Response) => {
       const tools = this.registry.getAllTools().map((tool) => ({
         name: tool.name,
@@ -201,8 +210,8 @@ export class MCPGatewayServer {
     return new Promise((resolve) => {
       this.app.listen(portToUse, host, () => {
         console.log(`[gateway] MCP Gateway listening on http://${host}:${portToUse}`);
-        console.log(`[gateway] MCP endpoint: http://${host}:${portToUse}/mcp`);
         console.log(`[gateway] SSE endpoint: http://${host}:${portToUse}/sse`);
+        console.log(`[gateway] Messages endpoint: http://${host}:${portToUse}/messages`);
         console.log(`[gateway] REST endpoint: http://${host}:${portToUse}/tools/call`);
         resolve();
       });
@@ -210,7 +219,15 @@ export class MCPGatewayServer {
   }
 
   async stop(): Promise<void> {
-    await this.mcpServer.close();
+    // Close all active transports
+    for (const sessionId in transports) {
+      try {
+        await transports[sessionId].close();
+        delete transports[sessionId];
+      } catch (error) {
+        console.error(`[gateway] Error closing transport for session ${sessionId}:`, error);
+      }
+    }
     await this.pool.disconnectAll();
     console.log("[gateway] MCP Gateway stopped");
   }
