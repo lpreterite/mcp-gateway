@@ -19,15 +19,8 @@
 ### 安装
 
 ```bash
-# 方式一: Homebrew (推荐 ⭐)
-# 安装后自动配置并启动服务
+# Homebrew (推荐 ⭐)
 brew install lpreterite/tap/mcp-gateway
-
-# 服务管理命令
-brew services start mcp-gateway   # 启动
-brew services stop mcp-gateway    # 停止
-brew services restart mcp-gateway  # 重启
-brew services list                # 查看状态
 ```
 
 ### 配置与启动
@@ -75,11 +68,12 @@ vim /usr/local/etc/mcp-gateway/config.json
 2. **启动服务：**
 
 ```bash
-# 使用 Homebrew 安装的配置文件
-mcp-gateway --config $(brew --prefix)/etc/mcp-gateway/config.json
+# Homebrew 服务方式（推荐 ⭐）
+brew services start mcp-gateway
 
-# 或使用默认配置路径
-mcp-gateway
+# 或手动运行
+mcp-gateway --config $(brew --prefix)/etc/mcp-gateway/config.json
+```
 
 服务默认监听 `http://localhost:4298`，可通过以下端点访问：
 - `GET /health` - 健康检查
@@ -87,9 +81,17 @@ mcp-gateway
 - `GET /sse` - SSE 连接
 - `POST /messages?sessionId=x` - 发送消息
 
-### 停止服务
+### 服务管理
 
-按 `Ctrl+C` 即可优雅停止服务。
+```bash
+brew services start mcp-gateway    # 启动服务
+brew services stop mcp-gateway     # 停止服务
+brew services restart mcp-gateway  # 重启服务
+brew services list                 # 查看所有服务状态
+tail -f $(brew --prefix)/var/log/mcp-gateway.log   # 查看日志
+```
+
+对于手动运行方式，按 `Ctrl+C` 即可优雅停止服务。
 
 ## CLI 参数
 
