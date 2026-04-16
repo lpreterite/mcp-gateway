@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/packy/mcp-gateway/internal/config"
-	"github.com/packy/mcp-gateway/internal/gateway"
-	"github.com/packy/mcp-gateway/internal/stdio"
+	"github.com/packy/mcp-gateway/src/config"
+	"github.com/packy/mcp-gateway/src/gateway"
+	"github.com/packy/mcp-gateway/src/stdio"
 	"github.com/urfave/cli/v2"
 )
 

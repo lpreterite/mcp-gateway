@@ -3,7 +3,7 @@ package pool
 import (
 	"testing"
 
-	"github.com/packy/mcp-gateway/internal/config"
+	"github.com/packy/mcp-gateway/src/config"
 )
 
 func TestNewPool(t *testing.T) {

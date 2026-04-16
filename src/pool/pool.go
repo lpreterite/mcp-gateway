@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/packy/mcp-gateway/internal/config"
+	"github.com/packy/mcp-gateway/src/config"
 )
 
 // MCPClientConnection MCP 客户端连接
