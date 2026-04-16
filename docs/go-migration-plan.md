@@ -27,6 +27,8 @@
 | 配置文件 | 社区库 `viper` | 支持 JSON/YAML/TOML |
 | 进程管理 | `os/exec` + stdio | 标准库实现 |
 | 连接池 | sync.Pool + 手写管理 | 利用 Go 协程 |
+| CLI 框架 | `urfave/cli/v2` | 轻量级、符合 Go 惯用风格 |
+| 日志框架 | 标准库 `log/slog` | 结构化日志，运行时开销低 |
 
 ### 项目结构
 
@@ -104,6 +106,43 @@ mcp-gateway/
 - HTTP 服务器正常运行
 - 连接池功能完整
 - 与现有 MCP 服务器通信正常
+
+### 优雅关闭实现
+
+在 Go 中实现服务优雅关闭（Graceful Shutdown）：
+
+```go
+// 创建一个带超时的 context
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+// 启动关闭信号监听
+sigChan := make(chan os.Signal, 1)
+signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+// 在独立协程中执行关闭
+go func() {
+    sig := <-sigChan
+    slog.Info("Received signal, initiating graceful shutdown", "signal", sig)
+
+    // 停止接受新连接
+    if err := srv.Shutdown(ctx); err != nil {
+        slog.Error("Server shutdown error", "error", err)
+    }
+
+    // 关闭所有 MCP 客户端连接
+    pool.CloseAll()
+
+    slog.Info("Graceful shutdown completed")
+    os.Exit(0)
+}()
+```
+
+**关键点**:
+- `srv.Shutdown(ctx)` 停止接受新连接，但保持现有连接处理完成
+- 设置超时避免无限等待
+- 先关闭 HTTP 服务器，再关闭连接池
+- 捕获 SIGINT (Ctrl+C) 和 SIGTERM (systemd) 两种信号
 
 ### Phase 3: 工具注册与映射 (第 4 周)
 
@@ -195,6 +234,70 @@ mcp-gateway/
   "servers": [...],
   "mapping": {...}
 }
+```
+
+---
+
+## 错误处理规范
+
+Go 错误处理采用显式错误返回机制，建议遵循以下规范：
+
+### 错误类型定义
+
+```go
+// 定义错误类型，便于分类处理
+var (
+    ErrServerNotFound = errors.New("server not found")
+    ErrConnectionPoolExhausted = errors.New("connection pool exhausted")
+    ErrInvalidRequest = errors.New("invalid request")
+    ErrTimeout = errors.New("operation timeout")
+)
+
+// 错误结构体，包含上下文信息
+type PoolError struct {
+    ServerName string
+    Err        error
+}
+
+func (e *PoolError) Error() string {
+    return fmt.Sprintf("pool error for %s: %v", e.ServerName, e.Err)
+}
+```
+
+### 错误处理策略
+
+| 场景 | 处理策略 |
+|------|----------|
+| 配置缺失/无效 | 返回错误并退出程序，避免带病运行 |
+| MCP 服务器连接失败 | 重试 + 记录日志，继续服务其他服务器 |
+| 单个请求超时 | 返回 JSON-RPC 错误，不影响其他请求 |
+| 连接池耗尽 | 排队等待 + 超时控制，避免无限阻塞 |
+| 未知错误 | 记录完整堆栈，返回通用错误信息 |
+
+### 日志规范
+
+使用 `log/slog` 进行结构化日志记录：
+
+```go
+// 错误日志：包含错误类型、上下文、堆栈
+slog.Error("MCP request failed",
+    "server", serverName,
+    "method", method,
+    "error", err,
+)
+
+// 警告日志：记录可恢复的问题
+slog.Warn("Connection pool near capacity",
+    "server", serverName,
+    "active", active,
+    "max", max,
+)
+
+// 信息日志：记录关键操作
+slog.Info("Connection established",
+    "server", serverName,
+    "clientId", clientID,
+)
 ```
 
 ---
@@ -432,6 +535,8 @@ WorkingDirectory=/path/to/config/directory
 ExecStart=/usr/local/bin/mcp-gateway --config /path/to/config.json
 Restart=always
 RestartSec=5
+Nice=5
+LimitNOFILE=65536
 StandardOutput=journal
 StandardError=journal
 
@@ -439,6 +544,10 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 ```
+
+**参数说明：**
+- `Nice=5`：降低进程优先级，避免影响系统其他服务
+- `LimitNOFILE=65536`：允许打开的文件描述符上限，确保高并发下不会耗尽
 
 **管理服务：**
 ```bash
@@ -560,17 +669,29 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o mcp-gateway ./cmd/gateway
 
 FROM alpine:3.19
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata && \
+    adduser -D -u 1000 appuser
 
 WORKDIR /app
 COPY --from=builder /build/mcp-gateway .
 COPY config/servers.example.json /app/config.json
 
+RUN chown -R appuser:appuser /app
+
+USER appuser
 EXPOSE 4298
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget -qO- http://localhost:4298/health || exit 1
 
 ENTRYPOINT ["./mcp-gateway"]
 CMD ["--config", "/app/config.json"]
 ```
+
+**安全加固说明：**
+- 使用非 root 用户 `appuser` 运行，降低容器被攻陷后的风险
+- `HEALTHCHECK` 让 Docker 定期检查服务健康状态
+- `chown` 确保应用用户拥有配置目录的读取权限
 
 **构建镜像：**
 ```bash
@@ -695,14 +816,17 @@ curl -s http://localhost:4298/health | jq .status
 
 ---
 
-## 风险与对策
+## 风险评估与对策
 
-| 风险 | 影响 | 对策 |
-|------|------|------|
-| MCP SDK 依赖 | 需重新实现协议解析 | 参考现有 SDK 实现，纯 JSON 处理 |
-| 性能问题 | Go vs Node.js 差异 | 预留 2 周性能优化时间 |
-| 并发模型差异 | 协程 vs 事件循环 | 充分测试连接池场景 |
-| 现有用户升级 | 配置迁移 | 保持配置格式完全兼容 |
+| 风险 | 概率 | 影响 | 对策 |
+|------|------|------|------|
+| MCP SDK 依赖需重新实现协议解析 | 中 | 高 | 参考现有 SDK 实现，纯 JSON 处理，提前验证协议兼容性 |
+| 性能问题（Go vs Node.js） | 低 | 中 | 预留 2 周性能优化时间，进行基准测试对比 |
+| 并发模型差异（协程 vs 事件循环） | 中 | 中 | 充分测试连接池场景，使用 sync.Pool 优化资源管理 |
+| 现有用户配置迁移 | 低 | 低 | 保持配置格式完全兼容，提供迁移文档 |
+| 第三方依赖兼容性 | 低 | 高 | 锁定依赖版本，使用 go.modreplace 备用方案 |
+| 跨平台构建复杂性 | 中 | 中 | 使用 GitHub Actions Matrix 构建，测试各平台二进制 |
+| 优雅关闭实现遗漏 | 中 | 中 | Phase 5 专项测试关闭流程，验证资源释放完整 |
 
 ---
 
