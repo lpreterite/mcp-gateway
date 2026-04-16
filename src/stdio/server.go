@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/packy/mcp-gateway/src/config"
-	"github.com/packy/mcp-gateway/src/pool"
-	"github.com/packy/mcp-gateway/src/registry"
+	"github.com/lpreterite/mcp-gateway/src/config"
+	"github.com/lpreterite/mcp-gateway/src/pool"
+	"github.com/lpreterite/mcp-gateway/src/registry"
 )
 
 // Server stdio 模式服务器

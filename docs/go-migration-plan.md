@@ -67,7 +67,7 @@ mcp-gateway/
 **目标**: 建立 Go 项目框架，配置管理，基础结构
 
 **任务**:
-1. 初始化 Go 模块 (`go mod init github.com/packy/mcp-gateway`)
+1. 初始化 Go 模块 (`go mod init github.com/lpreterite/mcp-gateway`)
 2. 配置 `viper` 加载 JSON 配置文件
 3. 实现配置结构体与验证（复用现有验证逻辑）
 4. 实现日志框架（标准库 `log/slog` 或第三方 `zerolog`）
@@ -342,21 +342,21 @@ release: make build-all && make release-draft
 ### 当前（Node.js）
 
 ```bash
-npm install -g git+https://github.com/packy/mcp-gateway.git
+npm install -g git+https://github.com/lpreterite/mcp-gateway.git
 ```
 
 ### 迁移后（Go）
 
 ```bash
 # 方式一: go install (推荐)
-go install github.com/packy/mcp-gateway@latest
+go install github.com/lpreterite/mcp-gateway@latest
 
 # 方式二: 下载预编译二进制
-curl -L https://github.com/packy/mcp-gateway/releases/latest/download/mcp-gateway-darwin-arm64 -o /usr/local/bin/mcp-gateway
+curl -L https://github.com/lpreterite/mcp-gateway/releases/latest/download/mcp-gateway-darwin-arm64 -o /usr/local/bin/mcp-gateway
 chmod +x /usr/local/bin/mcp-gateway
 
 # 方式三: Homebrew
-brew install packy/tap/mcp-gateway
+brew install lpreterite/homebrew-tap/mcp-gateway
 ```
 
 ---

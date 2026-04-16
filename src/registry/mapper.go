@@ -3,7 +3,7 @@ package registry
 import (
 	"strings"
 
-	"github.com/packy/mcp-gateway/src/config"
+	"github.com/lpreterite/mcp-gateway/src/config"
 )
 
 // MappingRule 映射规则

@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/packy/mcp-gateway/src/config"
-	"github.com/packy/mcp-gateway/src/pool"
-	"github.com/packy/mcp-gateway/src/registry"
+	"github.com/lpreterite/mcp-gateway/src/config"
+	"github.com/lpreterite/mcp-gateway/src/pool"
+	"github.com/lpreterite/mcp-gateway/src/registry"
 )
 
 // Server MCP 网关服务器

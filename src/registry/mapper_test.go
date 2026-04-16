@@ -3,7 +3,7 @@ package registry
 import (
 	"testing"
 
-	"github.com/packy/mcp-gateway/src/config"
+	"github.com/lpreterite/mcp-gateway/src/config"
 )
 
 func TestNewMapper(t *testing.T) {
