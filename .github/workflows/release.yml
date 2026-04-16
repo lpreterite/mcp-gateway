@@ -99,7 +99,7 @@ jobs:
         if: github.event_name == 'push'
         with:
           name: ${{ steps.prepare.outputs.release_name }}
-          body: ${{ fromJSON(steps.changelog.outputs.notes) }}
+          body: ${{ steps.changelog.outputs.notes }}
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           files: |
