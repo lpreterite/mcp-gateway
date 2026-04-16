@@ -48,7 +48,9 @@ vim /usr/local/etc/mcp-gateway/config.json
   },
   "pool": {
     "minConnections": 1,
-    "maxConnections": 5
+    "maxConnections": 5,
+    "acquireTimeout": 5000,
+    "idleTimeout": 30000
   },
   "servers": [
     {
