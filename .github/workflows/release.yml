@@ -227,7 +227,7 @@ jobs:
 
             service do
               run opt_bin/"mcp-gateway"
-              run_args ["--config", etc/"mcp-gateway/config.json"]
+              args "--config", etc/"mcp-gateway/config.json"
               keep_alive true
               working_dir HOMEBREW_PREFIX
               log_path "#{var}/log/mcp-gateway.log"
