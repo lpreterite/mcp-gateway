@@ -1,11 +1,11 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:alpine AS builder
 
 WORKDIR /build
 
 RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN GOPROXY=https://goproxy.cn,direct go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o mcp-gateway ./cmd/gateway
