@@ -157,7 +157,7 @@ jobs:
     name: Homebrew Tap Update
     needs: release
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.repository == 'YOUR_ORG/mcp-gateway'
+    if: github.event_name == 'push' && github.repository == 'lpreterite/mcp-gateway'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -165,14 +165,89 @@ jobs:
       - name: Create Homebrew formula
         run: |
           VERSION="${GITHUB_REF#refs/tags/}"
-          curl -sL https://github.com/YOUR_ORG/mcp-gateway/releases/download/${VERSION}/mcp-gateway-darwin-arm64 -o mcp-gateway
-          sha256sum mcp-gateway
+          echo "Creating formula for version ${VERSION}"
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+          # 下载所有平台的二进制文件并计算 checksum
+          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-darwin-arm64 -o mcp-gateway-darwin-arm64
+          SHA256_DARWIN_ARM64=$(sha256sum mcp-gateway-darwin-arm64 | awk '{print $1}')
+
+          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-darwin-amd64 -o mcp-gateway-darwin-amd64
+          SHA256_DARWIN_AMD64=$(sha256sum mcp-gateway-darwin-amd64 | awk '{print $1}')
+
+          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-linux-amd64 -o mcp-gateway-linux-amd64
+          SHA256_LINUX_AMD64=$(sha256sum mcp-gateway-linux-amd64 | awk '{print $1}')
+
+          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-linux-arm64 -o mcp-gateway-linux-arm64
+          SHA256_LINUX_ARM64=$(sha256sum mcp-gateway-linux-arm64 | awk '{print $1}')
+
+          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-windows-amd64.exe -o mcp-gateway-windows-amd64.exe
+          SHA256_WINDOWS_AMD64=$(sha256sum mcp-gateway-windows-amd64.exe | awk '{print $1}')
+
+          # 创建 formula 文件
+          cat > Formula/mcp-gateway.rb << 'EOF'
+          class McpGateway < Formula
+            desc "MCP 统一网关 - 连接多个 MCP 服务器的统一网关"
+            homepage "https://github.com/lpreterite/mcp-gateway"
+            url "https://github.com/lpreterite/mcp-gateway/releases/download/#{VERSION}/mcp-gateway-darwin-arm64"
+            version "#{VERSION}"
+            sha256 "#{SHA256_DARWIN_ARM64}"
+
+            depends_on "go" => :build
+
+              if OS.mac?
+            if Hardware::CPU.arm?
+              url "https://github.com/lpreterite/mcp-gateway/releases/download/#{VERSION}/mcp-gateway-darwin-arm64"
+              sha256 "#{SHA256_DARWIN_ARM64}"
+            else
+              url "https://github.com/lpreterite/mcp-gateway/releases/download/#{VERSION}/mcp-gateway-darwin-amd64"
+              sha256 "#{SHA256_DARWIN_AMD64}"
+            end
+          end
+
+          if OS.linux?
+            if Hardware::CPU.arm?
+              url "https://github.com/lpreterite/mcp-gateway/releases/download/#{VERSION}/mcp-gateway-linux-arm64"
+              sha256 "#{SHA256_LINUX_ARM64}"
+            else
+              url "https://github.com/lpreterite/mcp-gateway/releases/download/#{VERSION}/mcp-gateway-linux-amd64"
+              sha256 "#{SHA256_LINUX_AMD64}"
+            end
+          end
+
+          def install
+            bin.install "mcp-gateway"
+          end
+
+          test do
+            system "#{bin}/mcp-gateway", "--version"
+          end
+          end
+
+          echo "Formula created successfully"
+
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
         with:
+          repository: lpreterite/homebrew-tap
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Update mcp-gateway to ${{ github.ref_name }}"
-          title: "Update mcp-gateway to ${{ github.ref_name }}"
-          body: "Updates mcp-gateway to ${{ github.ref_name }}"
-          branch: homebrew/update-mcp-gateway
+          path: homebrew-tap
+
+      - name: Update formula in tap
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+
+          # 复制新 formula 到 tap 仓库
+          cp Formula/mcp-gateway.rb homebrew-tap/Formula/mcp-gateway.rb
+
+          cd homebrew-tap
+
+          # 配置 git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 提交并推送
+          git add Formula/mcp-gateway.rb
+          git commit -m "Update mcp-gateway to ${VERSION}"
+          git push origin main
+
+          echo "Formula updated successfully in homebrew-tap"
