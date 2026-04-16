@@ -1,292 +1,387 @@
 # MCP Gateway
 
-**MCP 统一网关** - 面向 AI 的 MCP 服务中枢。
+[![Go Version](https://img.shields.io/badge/Go-1.26%2B-blue.svg)](https://golang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://github.com/packy/mcp-gateway/actions/workflows/build.yml/badge.svg)](https://github.com/packy/mcp-gateway/actions)
 
-## 愿景
+**MCP 统一网关** - 连接多个 MCP 服务器的统一网关，支持 HTTP/SSE 和 stdio 两种连接方式。
 
-MCP Gateway 是一款专为 AI 时代打造的基础设施层工具：
+## 特性亮点
 
-- **统一管理**：一个入口管理所有 MCP 服务，无需为每个 AI Agent 单独配置
-- **AI 友好**：AI Agent 可以直接"对话"Gateway，动态发现和调用工具
-- **智能桥接**：作为 MCP 服务与 AI Agent 之间的枢纽，支持工具映射、过滤和聚合
-- **资源高效**：连接池复用机制，避免资源浪费，让 AI 专注任务而非基础设施
-
-无论是 OpenCode、Claude App 还是其他 AI 工具，只需连接 Gateway，即可访问所有配置的 MCP 服务能力。
-
-## 问题背景
-
-之前的架构每个客户端连接都会创建新的 MCP 服务实例，导致 CPU 被大量 node 进程占满。新的架构通过连接池复用和 HTTP/SSE 传输解决此问题。
-
-## 架构图
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        MCP Gateway System                             │
-│                                                                      │
-│  ┌────────────────────────────────────────────────────────────────┐ │
-│  │                    MCP Gateway (HTTP Server)                     │ │
-│  │                                                                 │ │
-│  │  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐ │ │
-│  │  │ HTTP/SSE     │  │ Connection Pool  │  │ Tool Registry    │ │ │
-│  │  │ Transport    │  │ Manager          │  │ (Centralized)    │ │ │
-│  │  └──────┬───────┘  └────────┬─────────┘  └──────────────────┘ │ │
-│  │         │                   │                                  │ │
-│  │         │           ┌───────┴─────────┐                        │ │
-│  │         │           │  MCP Server Pool │                        │ │
-│  │         │           │  ┌─────────────┐ │                        │ │
-│  │         │           │  │ minimax    │ │ (x N connections)    │ │
-│  │         │           │  │ zai-mcp    │ │                        │ │
-│  │         │           │  │ searxng    │ │                        │ │
-│  │         │           │  └─────────────┘ │                        │ │
-│  └─────────┼───────────┼───────────────────┼──────────────────────┘ │
-│            │           │                   │                          │
-│            │ HTTP/SSE  │                   │                          │
-│            │           │                   │                          │
-│  ┌─────────┴───────────┴───────────────────┴────────────┐          │
-│  │                    Stdio Bridge (独立进程)              │          │
-│  │  Claude Desktop ─── stdio ───> Bridge ─── HTTP/SSE    │          │
-│  └──────────────────────┬─────────────────────────────────┘          │
-│                         │ stdio                                       │
-│  ┌──────────────────────┴────────────────────┐                       │
-│  │         Claude Desktop (仅支持 stdio)      │                       │
-│  └───────────────────────────────────────────┘                       │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-## 核心特性
-
-- **连接池化**: 每个 MCP server 维护 N 个连接（可配置，默认 3 个）
-- **HTTP/SSE 传输**: 客户端通过 Server-Sent Events 连接，无需本地进程调用
-- **工具注册表**: 集中管理所有 MCP 服务器的工具映射
-- **REST API**: 提供 HTTP 端点用于简单工具调用
+- **跨平台零依赖安装** - 单一 Go 编译二进制文件，下载即可运行
+- **连接池管理** - 复用 MCP 服务器连接，提升性能
+- **工具注册与映射** - 支持前缀映射和自定义重命名
+- **优雅关闭** - 支持 SIGINT/SIGTERM，平滑处理现有连接
+- **健康检查** - 内置 `/health` 端点便于监控
 
 ## 快速开始
 
-### 安装方式
+### 安装（30 秒内）
 
-**方式一：npm 全局安装（推荐）**
 ```bash
-npm install -g git+https://github.com/packy/mcp-gateway.git
+# 方式一: go install (推荐)
+go install github.com/packy/mcp-gateway@latest
 
-# 首次配置
+# 方式二: Homebrew
+brew install packy/tap/mcp-gateway
+
+# 方式三: Docker
+docker run -d --name mcp-gateway -p 4298:4298 \
+  -v /path/to/config.json:/app/config.json \
+  mcp-gateway:latest
+
+# 方式四: 下载预编译二进制
+curl -L https://github.com/packy/mcp-gateway/releases/latest/download/mcp-gateway-darwin-arm64 \
+  -o /usr/local/bin/mcp-gateway
+chmod +x /usr/local/bin/mcp-gateway
+```
+
+### 配置
+
+创建配置文件：
+
+```bash
 mkdir -p ~/.config/mcp-gateway
-cp /usr/local/lib/node_modules/mcp-gateway/config/servers.example.json ~/.config/mcp-gateway/config.json
-# 编辑 ~/.config/mcp-gateway/config.json 添加你的 API keys
+cp /path/to/mcp-gateway/config/servers.example.json ~/.config/mcp-gateway/config.json
+# 编辑 config.json 添加你的 MCP 服务器配置
+```
 
-# 启动
+配置示例：
+
+```json
+{
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 4298,
+    "cors": true
+  },
+  "pool": {
+    "minConnections": 1,
+    "maxConnections": 5
+  },
+  "servers": [
+    {
+      "name": "minimax",
+      "type": "local",
+      "command": ["uvx", "minimax-coding-plan-mcp"],
+      "enabled": true,
+      "poolSize": 3
+    }
+  ],
+  "mapping": {
+    "minimax": { "prefix": "minimax", "stripPrefix": true }
+  }
+}
+```
+
+### 启动
+
+```bash
+# HTTP/SSE 模式
 mcp-gateway
+
+# Stdio 模式 (Claude Desktop)
+mcp-gateway --stdio
+
+# 指定配置
+mcp-gateway --config /path/to/config.json --port 4298
 ```
 
-**方式二：npx 直接运行**
-```bash
-# 需要先配置
-mkdir -p ~/.config/mcp-gateway
-npx git+https://github.com/packy/mcp-gateway.git -- copy-config ~/.config/mcp-gateway/config.json
-# 编辑 ~/.config/mcp-gateway/config.json
+## CLI 参数
 
-# 运行
-npx git+https://github.com/packy/mcp-gateway.git
-```
+| 参数 | 短选项 | 默认值 | 说明 |
+|------|--------|--------|------|
+| `--config <path>` | `-c` | 自动查找 | 配置文件路径 |
+| `--host <addr>` | `-H` | `0.0.0.0` | 监听地址 |
+| `--port <port>` | `-p` | `4298` | 监听端口 |
+| `--stdio` | - | `false` | 以 stdio 模式运行 |
+| `--version` | `-v` | - | 显示版本 |
+| `--help` | `-h` | - | 显示帮助 |
 
-**方式三：本地安装开发**
-```bash
-git clone https://github.com/packy/mcp-gateway.git
-cd mcp-gateway
-npm install && npm run build
+### 配置路径优先级
 
-# 首次配置
-cp config/servers.example.json config/servers.json
-# 编辑 config/servers.json
-
-# 启动
-npm run dev
-```
-
-### 1. 配置
-
-**配置路径优先级：**
-1. `MCP_GATEWAY_CONFIG` 环境变量
-2. `~/.config/mcp-gateway/config.json` (全局安装)
-3. `./config/servers.json` (本地开发)
-
-**默认端口：** `4298`
-
-### 2. 启动网关
-
-**全局安装：**
-```bash
-mcp-gateway
-```
-
-**本地开发：**
-```bash
-npm run dev
-
-```bash
-# 开发模式
-npm run dev
-
-# 生产模式
-npm run build
-npm start
-```
+1. `--config` 参数
+2. `MCP_GATEWAY_CONFIG` 环境变量
+3. `~/.config/mcp-gateway/config.json`
+4. `./config/servers.json`（本地开发）
 
 ## API 端点
 
-### SSE 连接（主要协议）
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/sse` | GET | 建立 SSE 连接 |
+| `/messages?sessionId=x` | POST | 发送 JSON-RPC 消息 |
+| `/tools` | GET | 列出所有可用工具 |
+| `/tools/call` | POST | 调用工具（REST 风格） |
+| `/health` | GET | 健康检查 |
 
+### SSE 连接示例
+
+```bash
+# 建立 SSE 连接
+curl http://localhost:4298/sse
+
+# 发送消息
+curl -X POST "http://localhost:4298/messages?sessionId=abc123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "minimax_web_search",
+      "arguments": {"query": "hello"}
+    }
+  }'
 ```
-GET /sse
-```
 
-建立持久 SSE 连接，接收工具调用结果和服务器通知。SSE 端点同时支持 GET（建立流）和 POST（发送消息）。
+### REST API 示例
 
-### 消息发送
+```bash
+# 列出工具
+curl http://localhost:4298/tools
 
-```
-POST /messages?sessionId=<session_id>
-Content-Type: application/json
-
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/call",
-  "params": {
+# 调用工具
+curl -X POST http://localhost:4298/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
     "name": "minimax_web_search",
-    "arguments": { "query": "..." }
-  }
-}
+    "arguments": {"query": "hello"}
+  }'
+
+# 健康检查
+curl http://localhost:4298/health
 ```
 
-### REST API（辅助协议）
+### 健康检查响应
 
-**列出工具**
-```
-GET /tools
-```
-
-**调用工具**
-```
-POST /tools/call
-Content-Type: application/json
-
+```json
 {
-  "name": "minimax_understand_image",
-  "arguments": {
-    "image_source": "https://example.com/image.png"
+  "status": "ok",
+  "version": "1.0.0",
+  "uptime": 3600,
+  "sessions": 2,
+  "pool": {
+    "minimax": {"total": 3, "active": 1, "idle": 2}
   }
 }
 ```
 
-**健康检查**
-```
-GET /health
-```
-
-## 工具名称映射
+## 工具映射
 
 工具根据其服务器使用前缀暴露：
 
 | 服务器 | 工具前缀 | 示例 |
 |--------|----------|------|
-| minimax | `minimax_` | `minimax_understand_image` |
-| zai-mcp-server | `zhipu_` | `zhipu_analyze_image` |
+| minimax | `minimax_` | `minimax_web_search` |
 | searxng | `searxng_` | `searxng_search` |
 
-## 连接池行为
+可以在配置中自定义映射规则：
 
-- 每个服务器以 `minConnections` 个连接开始（默认: 1）
-- 池根据需要增长到 `maxConnections`（默认: 5）
-- 连接在请求之间复用
-- 空闲连接在 `idleTimeout` 后清理（默认: 60s）
+```json
+{
+  "mapping": {
+    "minimax": {
+      "prefix": "minimax",
+      "stripPrefix": true,
+      "rename": {
+        "old_name": "new_name"
+      }
+    }
+  }
+}
+```
 
-## 性能
+## Docker 部署
 
-| 指标 | 值 |
-|------|-----|
-| 最大并发工具调用 | `maxConnections` × 服务器数量 |
-| 连接复用率 | 预热后 100% |
-| 典型延迟 | < 100ms |
+### 构建镜像
 
-## 文件结构
+```bash
+docker build -t mcp-gateway:latest .
+```
+
+### 运行容器
+
+```bash
+# 基本运行
+docker run -d \
+  --name mcp-gateway \
+  -p 4298:4298 \
+  -v /path/to/config.json:/app/config.json \
+  mcp-gateway:latest
+
+# 查看日志
+docker logs -f mcp-gateway
+
+# 停止删除
+docker stop mcp-gateway && docker rm mcp-gateway
+```
+
+### docker-compose
+
+```yaml
+services:
+  mcp-gateway:
+    image: mcp-gateway:latest
+    container_name: mcp-gateway
+    ports:
+      - "4298:4298"
+    volumes:
+      - ./config.json:/app/config.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4298/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+```bash
+docker-compose up -d
+docker-compose logs -f
+docker-compose down
+```
+
+## 后台运行
+
+### systemd (Linux)
+
+```bash
+sudo tee /etc/systemd/system/mcp-gateway.service << 'EOF'
+[Unit]
+Description=MCP Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=<your-user>
+ExecStart=/usr/local/bin/mcp-gateway --config /path/to/config.json
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl start mcp-gateway
+sudo systemctl enable mcp-gateway
+```
+
+### launchd (macOS)
+
+```bash
+mkdir -p ~/Library/LaunchAgents
+tee ~/Library/LaunchAgents/com.mcp-gateway.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.mcp-gateway</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/mcp-gateway</string>
+        <string>--config</string>
+        <string>/Users/packy/.config/mcp-gateway/config.json</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>
+EOF
+
+launchctl load ~/Library/LaunchAgents/com.mcp-gateway.plist
+```
+
+### pm2
+
+```bash
+pm2 start mcp-gateway -- --config /path/to/config.json
+pm2 save
+pm2 startup
+```
+
+### nohup
+
+```bash
+nohup mcp-gateway --config /path/to/config.json > /var/log/mcp-gateway.log 2>&1 &
+```
+
+## 项目结构
 
 ```
-src/
-├── gateway/
-│   ├── index.ts       # HTTP Server 入口
-│   ├── server.ts      # MCP Gateway Server (SSE transport)
-│   ├── pool.ts        # 连接池管理器
-│   ├── registry.ts    # 工具注册表
-│   └── mapper.ts      # 工具名映射
-├── stdio-bridge/       # Stdio 桥接器 (支持 Claude Desktop)
-│   ├── index.ts       # stdio 入口
-│   ├── bridge.ts      # 桥接逻辑
-│   └── types.ts       # 类型定义
-├── mcp/
-│   ├── client.ts      # MCP 客户端封装
-│   └── types.ts       # 类型定义
+mcp-gateway/
+├── cmd/
+│   └── gateway/
+│       └── main.go           # 主程序入口
+├── internal/
+│   ├── config/
+│   │   ├── loader.go         # 配置加载
+│   │   └── types.go          # 类型定义
+│   ├── gateway/
+│   │   ├── server.go         # HTTP/SSE 服务器
+│   │   └── types.go          # 类型定义
+│   ├── pool/
+│   │   ├── pool.go           # 连接池
+│   │   └── client.go         # MCP 客户端
+│   ├── registry/
+│   │   ├── registry.go       # 工具注册表
+│   │   └── mapper.go         # 工具映射
+│   └── stdio/
+│       ├── bridge.go         # Stdio 桥接器
+│       └── server.go         # Stdio 服务器
 ├── config/
-│   └── loader.ts      # 配置文件加载
-└── test/
-    ├── bridge-test.ts  # Bridge 测试
-    └── stdio-types-test.ts  # 类型测试
+│   └── servers.example.json   # 配置示例
+├── Makefile
+└── go.mod
 ```
 
 ## 配置说明
 
 ### gateway
 
-HTTP 服务器配置。
-
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| host | string | "0.0.0.0" | 监听地址 |
-| port | number | 4298 | 监听端口 |
-| cors | boolean | true | 是否启用 CORS |
+| host | string | `0.0.0.0` | 监听地址 |
+| port | number | `4298` | 监听端口 |
+| cors | boolean | `true` | 是否启用 CORS |
 
 ### pool
 
-连接池配置。
-
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| minConnections | number | 1 | 每个 server 最少连接数 |
-| maxConnections | number | 5 | 每个 server 最大连接数 |
-| acquireTimeout | number | 10000 | 获取连接超时(ms) |
-| idleTimeout | number | 60000 | 空闲回收时间(ms) |
+| minConnections | number | `1` | 每个 server 最少连接数 |
+| maxConnections | number | `5` | 每个 server 最大连接数 |
+| acquireTimeout | number | `10000` | 获取连接超时(ms) |
+| idleTimeout | number | `60000` | 空闲回收时间(ms) |
 
 ### servers
-
-下游 MCP 服务器列表。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | name | string | 服务器标识名 |
-| type | local/remote | 服务器类型 |
+| type | `local`/`remote` | 服务器类型 |
 | command | string[] | 启动命令（local 类型必填） |
 | url | string | 服务器 URL（remote 类型必填） |
 | enabled | boolean | 是否启用 |
 | env | object | 环境变量 |
 | poolSize | number | 此 server 的连接池大小 |
 
-### mapping
+## 开发
 
-工具名称映射规则。
+```bash
+# 构建
+make build
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| prefix | string | 前缀名（如 `minimax`） |
-| stripPrefix | boolean | 是否剥离前缀 |
-| rename | object | 工具重映射表 |
+# 测试
+make test
 
-### toolFilters
-
-工具过滤规则。
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| include | string[] | 只包含的工具名 |
-| exclude | string[] | 排除的工具名 |
+# 运行
+./mcp-gateway --config config/servers.example.json
+```
 
 ## License
 
