@@ -1,11 +1,42 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
-.env
-*.log
-.DS_Store
-*.swp
-*.swo
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+gateway-test
+mcp-gateway-test
+*.test
+
+# Go
+go.work
+*.out
+coverage.out
+coverage.html
+
+# IDE
 .idea/
 .vscode/
 *.iml
+.DS_Store
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Config (may contain secrets)
 config/servers.json
+config/*.local.json
