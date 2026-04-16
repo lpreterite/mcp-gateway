@@ -155,7 +155,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	// 注册到通知器
 	ch := make(chan string, 100)
 	GlobalNotifier.Add(sessionID, ch)
-	defer transport.Close()
+	defer func() { _ = transport.Close() }()
 
 	slog.Info("SSE connection established",
 		"session", sessionID,
@@ -163,7 +163,10 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// 发送初始连接消息
-	transport.Send("connected", fmt.Sprintf(`{"sessionId":"%s"}`, sessionID))
+	if err := transport.Send("connected", fmt.Sprintf(`{"sessionId":"%s"}`, sessionID)); err != nil {
+		slog.Error("Failed to send initial SSE message", "error", err)
+		return
+	}
 
 	// 保持连接直到关闭
 	clientGone := r.Context().Done()
@@ -263,7 +266,9 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 
 	// 发送响应
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		slog.Error("Failed to encode response", "error", err)
+	}
 }
 
 // callTool 调用工具
@@ -300,7 +305,9 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ToolsResponse{Tools: responses})
+	if err := json.NewEncoder(w).Encode(ToolsResponse{Tools: responses}); err != nil {
+		slog.Error("Failed to encode tools response", "error", err)
+	}
 }
 
 // handleToolCall 处理工具调用请求
@@ -319,9 +326,11 @@ func (s *Server) handleToolCall(w http.ResponseWriter, r *http.Request) {
 	result, err := s.callTool(req.Name, req.Arguments)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ToolCallResponse{
+		if err := json.NewEncoder(w).Encode(ToolCallResponse{
 			Error: err.Error(),
-		})
+		}); err != nil {
+			slog.Error("Failed to encode tool call error response", "error", err)
+		}
 		return
 	}
 
@@ -338,7 +347,9 @@ func (s *Server) handleToolCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ToolCallResponse{Result: gatewayResult})
+	if err := json.NewEncoder(w).Encode(ToolCallResponse{Result: gatewayResult}); err != nil {
+		slog.Error("Failed to encode tool call success response", "error", err)
+	}
 }
 
 // handleHealth 处理健康检查
@@ -350,11 +361,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	stats := s.pool.GetStats()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(HealthResponse{
+	if err := json.NewEncoder(w).Encode(HealthResponse{
 		Status:   "ok",
 		Sessions: sessionCount,
 		Pool:     stats,
-	})
+	}); err != nil {
+		slog.Error("Failed to encode health response", "error", err)
+	}
 }
 
 // Start 启动服务器
@@ -410,7 +423,9 @@ func (s *Server) handleGracefulShutdown() {
 		slog.Error("Server shutdown error", "error", err)
 	}
 
-	s.pool.DisconnectAll()
+	if err := s.pool.DisconnectAll(); err != nil {
+		slog.Error("Pool disconnect error", "error", err)
+	}
 
 	slog.Info("Graceful shutdown completed")
 }

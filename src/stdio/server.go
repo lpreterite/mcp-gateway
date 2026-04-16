@@ -218,7 +218,9 @@ func (s *Server) sendNotification(method string, params interface{}) {
 
 // Stop 停止服务器
 func (s *Server) Stop() {
-	s.pool.DisconnectAll()
+	if err := s.pool.DisconnectAll(); err != nil {
+		slog.Error("Failed to disconnect pool", "error", err)
+	}
 }
 
 // IsConnected 检查连接状态

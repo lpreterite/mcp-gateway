@@ -47,7 +47,7 @@ func (c *MCPClientConnection) Connect() error {
 		return nil
 	}
 
-	if c.config.Command == nil || len(c.config.Command) == 0 {
+	if len(c.config.Command) == 0 {
 		return fmt.Errorf("no command configured for server %s", c.config.Name)
 	}
 
@@ -273,12 +273,16 @@ func (c *MCPClientConnection) Disconnect() error {
 
 	// 关闭 stdin，这通常会导致进程退出
 	if c.stdin != nil {
-		c.stdin.Close()
+		if err := c.stdin.Close(); err != nil {
+			slog.Error("Failed to close stdin", "error", err)
+		}
 	}
 
 	// 等待进程结束
 	if c.cmd != nil && c.cmd.Process != nil {
-		c.cmd.Wait()
+		if err := c.cmd.Wait(); err != nil {
+			slog.Error("Failed to wait for process", "error", err)
+		}
 	}
 
 	c.connected = false
@@ -509,7 +513,9 @@ func (p *Pool) Disconnect(serverName string) error {
 	}
 
 	for _, client := range pool {
-		client.Disconnect()
+		if err := client.Disconnect(); err != nil {
+			slog.Error("Failed to disconnect client", "error", err)
+		}
 	}
 
 	delete(p.pools, serverName)
@@ -526,7 +532,9 @@ func (p *Pool) DisconnectAll() error {
 
 	for serverName := range p.pools {
 		for _, client := range p.pools[serverName] {
-			client.Disconnect()
+			if err := client.Disconnect(); err != nil {
+				slog.Error("Failed to disconnect client", "error", err)
+			}
 		}
 	}
 

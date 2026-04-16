@@ -104,7 +104,9 @@ func (b *Bridge) handleRequest(req *JSONRPCRequest) {
 	}
 
 	// 确保输出被刷新
-	b.writer.Flush()
+	if err := b.writer.Flush(); err != nil {
+		slog.Error("Failed to flush writer", "error", err)
+	}
 }
 
 // SendNotification 发送通知
