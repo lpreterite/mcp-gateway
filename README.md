@@ -19,16 +19,17 @@
 ### 安装（30 秒内）
 
 ```bash
-# 方式一: go install (推荐)
+# 方式一: Docker + docker-compose (推荐 ⭐)
+# 适合大多数用户，一行命令完成安装和运行
+git clone https://github.com/packy/mcp-gateway.git
+cd mcp-gateway
+docker-compose up -d
+
+# 方式二: go install
 go install github.com/packy/mcp-gateway@latest
 
-# 方式二: Homebrew
+# 方式三: Homebrew
 brew install packy/tap/mcp-gateway
-
-# 方式三: Docker
-docker run -d --name mcp-gateway -p 4298:4298 \
-  -v /path/to/config.json:/app/config.json \
-  mcp-gateway:latest
 
 # 方式四: 下载预编译二进制
 curl -L https://github.com/packy/mcp-gateway/releases/latest/download/mcp-gateway-darwin-arm64 \
@@ -194,16 +195,41 @@ curl http://localhost:4298/health
 
 ## Docker 部署
 
-### 构建镜像
+### 使用 docker-compose 安装（推荐 ⭐）
+
+适合大多数用户的推荐安装方式，一行命令完成下载、构建和运行：
 
 ```bash
-docker build -t mcp-gateway:latest .
+# 1. 下载项目
+git clone https://github.com/packy/mcp-gateway.git
+cd mcp-gateway
+
+# 2. 编辑配置（可选，使用默认示例配置）
+cp config/servers.example.json config/servers.json
+# 编辑 config/servers.json 添加你的 MCP 服务器
+
+# 3. 启动服务
+docker-compose up -d
+
+# 4. 查看状态
+docker-compose ps
+
+# 5. 查看日志
+docker-compose logs -f
+
+# 6. 停止服务
+docker-compose down
 ```
 
-### 运行容器
+### 手动构建镜像
+
+如果你已经有代码库，可以手动构建镜像：
 
 ```bash
-# 基本运行
+# 构建镜像
+docker build -t mcp-gateway:latest .
+
+# 运行容器
 docker run -d \
   --name mcp-gateway \
   -p 4298:4298 \
@@ -217,29 +243,75 @@ docker logs -f mcp-gateway
 docker stop mcp-gateway && docker rm mcp-gateway
 ```
 
-### docker-compose
+### docker-compose.yml 说明
 
 ```yaml
 services:
   mcp-gateway:
-    image: mcp-gateway:latest
+    build:
+      context: .              # 构建上下文（项目根目录）
+      dockerfile: Dockerfile # Dockerfile 路径
+    container_name: mcp-gateway
+    ports:
+      - "4298:4298"           # 映射端口
+    volumes:
+      - ./config/servers.json:/app/config.json:ro  # 挂载配置文件
+    environment:
+      - TZ=Asia/Shanghai      # 设置时区
+    restart: unless-stopped   # 自动重启
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4298/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+```
+
+### 自定义配置
+
+使用自定义配置文件：
+
+```bash
+# 1. 创建配置目录
+mkdir -p ~/mcp-gateway/config
+
+# 2. 复制并编辑配置
+cp config/servers.example.json ~/mcp-gateway/config/config.json
+nano ~/mcp-gateway/config/config.json
+
+# 3. 创建 docker-compose.yml
+cat > ~/mcp-gateway/docker-compose.yml << 'EOF'
+services:
+  mcp-gateway:
+    build: /path/to/mcp-gateway
     container_name: mcp-gateway
     ports:
       - "4298:4298"
     volumes:
-      - ./config.json:/app/config.json:ro
+      - ~/mcp-gateway/config/config.json:/app/config.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4298/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+EOF
+
+# 4. 启动
+cd ~/mcp-gateway && docker-compose up -d
 ```
 
+### 进入容器调试
+
 ```bash
-docker-compose up -d
-docker-compose logs -f
-docker-compose down
+# 进入容器
+docker exec -it mcp-gateway sh
+
+# 在容器内查看进程
+ps aux | grep mcp-gateway
+
+# 测试健康检查
+wget -qO- http://localhost:4298/health
 ```
 
 ## 后台运行
@@ -335,6 +407,8 @@ mcp-gateway/
 │       └── server.go         # Stdio 服务器
 ├── config/
 │   └── servers.example.json   # 配置示例
+├── Dockerfile                 # Docker 镜像构建文件
+├── docker-compose.yml          # Docker Compose 配置
 ├── Makefile
 └── go.mod
 ```
