@@ -16,35 +16,32 @@
 
 ## 快速开始
 
-### 安装（30 秒内）
+### 安装
 
 ```bash
-# 方式一: Docker + docker-compose (推荐 ⭐)
-# 适合大多数用户，一行命令完成安装和运行
-git clone https://github.com/lpreterite/mcp-gateway.git
-cd mcp-gateway
-docker-compose up -d
-
-# 方式二: go install
-go install github.com/lpreterite/mcp-gateway@latest
-
-# 方式三: Homebrew
+# 方式一: Homebrew (推荐 ⭐)
+# 安装后自动配置并启动服务
 brew install lpreterite/tap/mcp-gateway
 
-# 方式四: 下载预编译二进制
-curl -L https://github.com/lpreterite/mcp-gateway/releases/latest/download/mcp-gateway-darwin-arm64 \
-  -o /usr/local/bin/mcp-gateway
-chmod +x /usr/local/bin/mcp-gateway
+# 服务管理命令
+brew services start mcp-gateway   # 启动
+brew services stop mcp-gateway    # 停止
+brew services restart mcp-gateway  # 重启
+brew services list                # 查看状态
 ```
 
-### 配置
+### 配置与启动
 
-创建配置文件：
+Homebrew 安装后配置文件位于 `$(brew --prefix)/etc/mcp-gateway/config.json`
+
+1. **编辑配置文件添加你的 MCP 服务器：**
 
 ```bash
-mkdir -p ~/.config/mcp-gateway
-cp /path/to/mcp-gateway/config/servers.example.json ~/.config/mcp-gateway/config.json
-# 编辑 config.json 添加你的 MCP 服务器配置
+# Homebrew 安装位置 (macOS ARM)
+vim /opt/homebrew/etc/mcp-gateway/config.json
+
+# 或 macOS Intel
+vim /usr/local/etc/mcp-gateway/config.json
 ```
 
 配置示例：
@@ -75,18 +72,24 @@ cp /path/to/mcp-gateway/config/servers.example.json ~/.config/mcp-gateway/config
 }
 ```
 
-### 启动
+2. **启动服务：**
 
 ```bash
-# HTTP/SSE 模式
+# 使用 Homebrew 安装的配置文件
+mcp-gateway --config $(brew --prefix)/etc/mcp-gateway/config.json
+
+# 或使用默认配置路径
 mcp-gateway
 
-# Stdio 模式 (Claude Desktop)
-mcp-gateway --stdio
+服务默认监听 `http://localhost:4298`，可通过以下端点访问：
+- `GET /health` - 健康检查
+- `GET /tools` - 列出所有工具
+- `GET /sse` - SSE 连接
+- `POST /messages?sessionId=x` - 发送消息
 
-# 指定配置
-mcp-gateway --config /path/to/config.json --port 4298
-```
+### 停止服务
+
+按 `Ctrl+C` 即可优雅停止服务。
 
 ## CLI 参数
 

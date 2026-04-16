@@ -150,8 +150,6 @@ jobs:
             homepage "https://github.com/lpreterite/mcp-gateway"
             version "VERSION"
 
-            depends_on "go" => :build
-
             if OS.mac?
               if Hardware::CPU.arm?
                 url "https://github.com/lpreterite/mcp-gateway/releases/download/VERSION/mcp-gateway-darwin-arm64"
@@ -186,6 +184,54 @@ jobs:
                   bin.install "mcp-gateway-linux-amd64" => "mcp-gateway"
                 end
               end
+
+              # 生成示例配置文件
+              (etc/"mcp-gateway").mkpath
+              (etc/"mcp-gateway/config.json").write <<~JSON
+                {
+                  "gateway": {
+                    "host": "0.0.0.0",
+                    "port": 4298,
+                    "cors": true
+                  },
+                  "pool": {
+                    "minConnections": 1,
+                    "maxConnections": 5
+                  },
+                  "servers": [
+                    {
+                      "name": "example",
+                      "type": "local",
+                      "command": ["echo", "hello"],
+                      "enabled": true,
+                      "poolSize": 1
+                    }
+                  ],
+                  "mapping": {}
+                }
+              JSON
+            end
+
+            def post_install
+              ohai "MCP Gateway 安装完成！"
+              ohai ""
+              ohai "配置文件: #{etc}/mcp-gateway/config.json"
+              ohai "日志文件: #{var}/log/mcp-gateway.log"
+              ohai ""
+              ohai "请编辑 #{etc}/mcp-gateway/config.json 添加你的 MCP 服务器"
+              ohai ""
+              ohai "启动服务: brew services start #{name}"
+              ohai "停止服务: brew services stop #{name}"
+              ohai "查看日志: tail -f #{var}/log/mcp-gateway.log"
+            end
+
+            service do
+              run opt_bin/"mcp-gateway"
+              run_args ["--config", etc/"mcp-gateway/config.json"]
+              keep_alive true
+              working_dir HOMEBREW_PREFIX
+              log_path "#{var}/log/mcp-gateway.log"
+              error_log_path "#{var}/log/mcp-gateway.err.log"
             end
 
             test do
