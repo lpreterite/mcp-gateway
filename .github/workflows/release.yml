@@ -173,7 +173,19 @@ jobs:
             end
 
             def install
-              bin.install "mcp-gateway"
+              if OS.mac?
+                if Hardware::CPU.arm?
+                  bin.install "mcp-gateway-darwin-arm64" => "mcp-gateway"
+                else
+                  bin.install "mcp-gateway-darwin-amd64" => "mcp-gateway"
+                end
+              else
+                if Hardware::CPU.arm?
+                  bin.install "mcp-gateway-linux-arm64" => "mcp-gateway"
+                else
+                  bin.install "mcp-gateway-linux-amd64" => "mcp-gateway"
+                end
+              end
             end
 
             test do
