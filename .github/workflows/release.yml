@@ -197,6 +197,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF#refs/tags/}"
 
+          mkdir -p homebrew-tap/Formula
           cp Formula/mcp-gateway.rb homebrew-tap/Formula/mcp-gateway.rb
 
           cd homebrew-tap
