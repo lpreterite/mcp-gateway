@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-blue.svg)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/packy/mcp-gateway/actions/workflows/build.yml/badge.svg)](https://github.com/packy/mcp-gateway/actions)
+[![Build Status](https://github.com/lpreterite/mcp-gateway/actions/workflows/build.yml/badge.svg)](https://github.com/lpreterite/mcp-gateway/actions)
 
 **MCP 统一网关** - 连接多个 MCP 服务器的统一网关，支持 HTTP/SSE 和 stdio 两种连接方式。
 
@@ -21,18 +21,18 @@
 ```bash
 # 方式一: Docker + docker-compose (推荐 ⭐)
 # 适合大多数用户，一行命令完成安装和运行
-git clone https://github.com/packy/mcp-gateway.git
+git clone https://github.com/lpreterite/mcp-gateway.git
 cd mcp-gateway
 docker-compose up -d
 
 # 方式二: go install
-go install github.com/packy/mcp-gateway@latest
+go install github.com/lpreterite/mcp-gateway@latest
 
 # 方式三: Homebrew
-brew install packy/tap/mcp-gateway
+brew install lpreterite/tap/mcp-gateway
 
 # 方式四: 下载预编译二进制
-curl -L https://github.com/packy/mcp-gateway/releases/latest/download/mcp-gateway-darwin-arm64 \
+curl -L https://github.com/lpreterite/mcp-gateway/releases/latest/download/mcp-gateway-darwin-arm64 \
   -o /usr/local/bin/mcp-gateway
 chmod +x /usr/local/bin/mcp-gateway
 ```
@@ -201,7 +201,7 @@ curl http://localhost:4298/health
 
 ```bash
 # 1. 下载项目
-git clone https://github.com/packy/mcp-gateway.git
+git clone https://github.com/lpreterite/mcp-gateway.git
 cd mcp-gateway
 
 # 2. 编辑配置（可选，使用默认示例配置）
@@ -355,7 +355,7 @@ tee ~/Library/LaunchAgents/com.mcp-gateway.plist << 'EOF'
     <array>
         <string>/usr/local/bin/mcp-gateway</string>
         <string>--config</string>
-        <string>/Users/packy/.config/mcp-gateway/config.json</string>
+        <string>/Users/lpreterite/.config/mcp-gateway/config.json</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
