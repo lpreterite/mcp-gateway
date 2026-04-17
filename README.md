@@ -88,7 +88,7 @@ mcp-gateway --config $(brew --prefix)/etc/mcp-gateway/config.json
 `mcp-gateway` 内置了跨平台服务管理功能，支持自动检测 PATH 环境变量（包括 Homebrew, nvm, fnm, uv 等），确保服务能正确启动你的 MCP 服务器。
 
 ```bash
-# 安装为系统服务 (macOS 需要 LaunchAgents 权限，Linux 需要 sudo)
+# 安装为系统服务 (macOS 为当前用户安装，Linux 需要 sudo)
 mcp-gateway service install --config $(brew --prefix)/etc/mcp-gateway/config.json
 
 # 启动/停止/重启
@@ -99,9 +99,15 @@ mcp-gateway service restart
 # 检查状态
 mcp-gateway service status
 
+# 查看日志 (macOS 默认位置)
+tail -f ~/Library/Logs/mcp-gateway.log
+
 # 卸载服务
 mcp-gateway service uninstall
 ```
+
+> **注意**：在 macOS 上，服务将安装为 `LaunchAgent`（用户级服务），无需 `sudo`。在 Linux 上，服务将安装为 `systemd` 单元，通常需要 `sudo` 权限。
+
 
 ### CLI 参数
 
@@ -333,71 +339,20 @@ wget -qO- http://localhost:4298/health
 
 ## 后台运行
 
-### systemd (Linux)
+建议优先使用内置的 `service` 命令进行管理（见上文）。
 
-```bash
-sudo tee /etc/systemd/system/mcp-gateway.service << 'EOF'
-[Unit]
-Description=MCP Gateway
-After=network.target
-
-[Service]
-Type=simple
-User=<your-user>
-ExecStart=/usr/local/bin/mcp-gateway --config /path/to/config.json
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl start mcp-gateway
-sudo systemctl enable mcp-gateway
-```
-
-### launchd (macOS)
-
-```bash
-mkdir -p ~/Library/LaunchAgents
-tee ~/Library/LaunchAgents/com.mcp-gateway.plist << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.mcp-gateway</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/mcp-gateway</string>
-        <string>--config</string>
-        <string>/Users/lpreterite/.config/mcp-gateway/config.json</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-</dict>
-</plist>
-EOF
-
-launchctl load ~/Library/LaunchAgents/com.mcp-gateway.plist
-```
+如果您需要使用其他进程管理工具：
 
 ### pm2
-
 ```bash
 pm2 start mcp-gateway -- --config /path/to/config.json
 pm2 save
 pm2 startup
 ```
 
-### nohup
+### Docker
+请参考 [Docker 部署](#docker-部署) 章节。
 
-```bash
-nohup mcp-gateway --config /path/to/config.json > /var/log/mcp-gateway.log 2>&1 &
-```
 
 ## 项目结构
 
