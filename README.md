@@ -115,6 +115,31 @@ mcp-gateway service uninstall
 
 > **注意**：在 macOS 上，服务将安装为 `LaunchAgent`（用户级服务），无需 `sudo`。在 Linux 上，服务将安装为 `systemd` 单元，通常需要 `sudo` 权限。
 
+`service status` 现在会输出分层诊断信息，而不仅是 `running/stopped`。典型输出包括：
+
+- `Config`：配置文件是否合法、实际使用的配置路径
+- `Install`：服务定义文件是否存在
+- `Registration`：是否已加载到 `launchd`/`systemd`
+- `Process`：是否存在受服务管理器托管的进程
+- `Health`：网关端口是否可访问
+- `Suggested action`：下一步建议操作
+
+当网关刚启动且仍在后台初始化 MCP 连接时：
+
+- `GET /health` 返回 `200`，其中 `status` 可能为 `initializing`，`ready` 为 `false`
+- `GET /tools` 返回 `503`
+- `POST /tools/call` 返回 `503`
+- JSON-RPC 的 `tools/list` / `tools/call` 返回 `gateway is still initializing`
+
+常用退出码：
+
+- `10`：配置错误
+- `20`：服务未安装
+- `30`：服务注册或平台恢复失败
+- `40`：运行时错误
+- `50`：健康检查失败
+- `60`：服务命令执行失败
+
 
 ### CLI 参数
 

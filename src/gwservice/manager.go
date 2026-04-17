@@ -96,17 +96,10 @@ func GetConfig(configPath string) (*service.Config, error) {
 	}, nil
 }
 
-// NewManager 创建服务管理器
-func NewManager(configPath string) (service.Service, error) {
+func newService(configPath string, cfg *config.Config) (service.Service, error) {
 	svcConfig, err := GetConfig(configPath)
 	if err != nil {
 		return nil, err
-	}
-
-	// 加载配置供程序运行使用
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	prg := &program{
@@ -119,4 +112,19 @@ func NewManager(configPath string) (service.Service, error) {
 	}
 
 	return s, nil
+}
+
+// NewManager 创建运行时服务管理器，会校验配置并将其注入服务程序。
+func NewManager(configPath string) (service.Service, error) {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	return newService(configPath, cfg)
+}
+
+// NewControlManager 创建控制用服务句柄，不要求当前配置可成功加载。
+func NewControlManager(configPath string) (service.Service, error) {
+	return newService(configPath, nil)
 }
