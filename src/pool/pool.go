@@ -1,23 +1,30 @@
 package pool
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
-	"os"
-	"os/exec"
 	"sync"
 	"time"
 
 	"github.com/lpreterite/mcp-gateway/src/config"
 )
 
+// ClientConfig MCP 客户端配置（内部使用，包含启动器）
+type ClientConfig struct {
+	Command string
+	Args    []string
+	Name    string
+	Starter ProcessStarter
+}
+
 // MCPClientConnection MCP 客户端连接
 type MCPClientConnection struct {
 	config    config.ServerConfig
-	cmd       *exec.Cmd
-	stdin     *os.File
-	stdout    *os.File
+	process   Process
+	starter   ProcessStarter
 	connected bool
 	lastUsed  time.Time
 	mu        sync.Mutex
@@ -30,16 +37,17 @@ type MCPClientConnection struct {
 }
 
 // NewMCPClientConnection 创建新的 MCP 客户端连接
-func NewMCPClientConnection(cfg config.ServerConfig) *MCPClientConnection {
+func NewMCPClientConnection(cfg config.ServerConfig, starter ProcessStarter) *MCPClientConnection {
 	return &MCPClientConnection{
 		config:   cfg,
+		starter:  starter,
 		lastUsed: time.Now(),
 		pending:  make(map[int]chan *json.RawMessage),
 	}
 }
 
 // Connect 建立连接
-func (c *MCPClientConnection) Connect() error {
+func (c *MCPClientConnection) Connect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -51,40 +59,23 @@ func (c *MCPClientConnection) Connect() error {
 		return fmt.Errorf("no command configured for server %s", c.config.Name)
 	}
 
-	// 构建环境变量
-	env := os.Environ()
-	if c.config.Env != nil {
-		for k, v := range c.config.Env {
-			env = append(env, fmt.Sprintf("%s=%s", k, v))
-		}
+	// 选择启动器
+	starter := c.starter
+	if starter == nil {
+		starter = &DefaultProcessStarter{}
 	}
 
-	// 创建子进程
+	// 构建命令参数
 	cmdPath := c.config.Command[0]
 	cmdArgs := c.config.Command[1:]
-	cmd := exec.Command(cmdPath, cmdArgs...)
-	cmd.Env = env
-
-	// 获取 stdin/stdout pipe
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stdin pipe: %w", err)
-	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe: %w", err)
-	}
-
-	c.stdin = stdin.(*os.File)
-	c.stdout = stdout.(*os.File)
-	c.cmd = cmd
 
 	// 启动进程
-	if err := cmd.Start(); err != nil {
+	process, err := starter.Start(ctx, cmdPath, cmdArgs)
+	if err != nil {
 		return fmt.Errorf("failed to start process: %w", err)
 	}
 
+	c.process = process
 	time.Sleep(100 * time.Millisecond)
 
 	c.connected = true
@@ -160,7 +151,7 @@ func (c *MCPClientConnection) sendRequestLocked(method string, params interface{
 
 	data = append(data, '\n')
 
-	_, err = c.stdin.Write(data)
+	_, err = c.process.Stdin().Write(data)
 	if err != nil {
 		c.pendingMu.Lock()
 		delete(c.pending, id)
@@ -196,12 +187,12 @@ func (c *MCPClientConnection) sendNotificationLocked(method string, params inter
 	}
 
 	data = append(data, '\n')
-	c.stdin.Write(data)
+	c.process.Stdin().Write(data)
 }
 
 // readResponses 异步读取响应
 func (c *MCPClientConnection) readResponses() {
-	decoder := json.NewDecoder(c.stdout)
+	decoder := json.NewDecoder(c.process.Stdout())
 	for decoder.More() {
 		var response json.RawMessage
 		if err := decoder.Decode(&response); err != nil {
@@ -300,7 +291,7 @@ func (c *MCPClientConnection) sendRequest(method string, params interface{}) (*j
 		c.pendingMu.Unlock()
 		return nil, fmt.Errorf("not connected")
 	}
-	_, err = c.stdin.Write(data)
+	_, err = c.process.Stdin().Write(data)
 	c.mu.Unlock()
 
 	if err != nil {
@@ -372,15 +363,15 @@ func (c *MCPClientConnection) Disconnect() error {
 	}
 
 	// 关闭 stdin，这通常会导致进程退出
-	if c.stdin != nil {
-		if err := c.stdin.Close(); err != nil {
-			slog.Error("Failed to close stdin", "error", err)
+	if c.process != nil {
+		if closer, ok := c.process.Stdin().(io.Closer); ok {
+			if err := closer.Close(); err != nil {
+				slog.Error("Failed to close stdin", "error", err)
+			}
 		}
-	}
 
-	// 等待进程结束
-	if c.cmd != nil && c.cmd.Process != nil {
-		if err := c.cmd.Wait(); err != nil {
+		// 等待进程结束
+		if err := c.process.Wait(); err != nil {
 			slog.Error("Failed to wait for process", "error", err)
 		}
 	}
@@ -424,6 +415,7 @@ type Pool struct {
 	pools         map[string][]*MCPClientConnection        // serverName -> 连接池
 	active        map[string]map[*MCPClientConnection]bool // serverName -> 活跃连接集合
 	serverConfigs map[string]config.ServerConfig
+	starter       ProcessStarter
 	mu            sync.RWMutex
 }
 
@@ -435,6 +427,11 @@ func NewPool(cfg config.PoolConfig) *Pool {
 		active:        make(map[string]map[*MCPClientConnection]bool),
 		serverConfigs: make(map[string]config.ServerConfig),
 	}
+}
+
+// SetStarter 设置进程启动器
+func (p *Pool) SetStarter(starter ProcessStarter) {
+	p.starter = starter
 }
 
 // Initialize 初始化连接池
@@ -455,8 +452,9 @@ func (p *Pool) Initialize(servers []config.ServerConfig) error {
 
 		successCount := 0
 		for i := 0; i < poolSize; i++ {
-			client := NewMCPClientConnection(server)
-			if err := client.Connect(); err != nil {
+			client := NewMCPClientConnection(server, p.starter)
+			ctx := context.Background()
+			if err := client.Connect(ctx); err != nil {
 				slog.Warn("Failed to create connection",
 					"server", server.Name,
 					"index", i,
@@ -527,8 +525,9 @@ func (p *Pool) acquire(serverName string) (*MCPClientConnection, error) {
 			p.mu.Lock()
 			// 再次检查（可能其他协程已经创建了）
 			if len(pool) < maxConnections {
-				client := NewMCPClientConnection(serverConfig)
-				if err := client.Connect(); err != nil {
+				client := NewMCPClientConnection(serverConfig, p.starter)
+				ctx := context.Background()
+				if err := client.Connect(ctx); err != nil {
 					slog.Warn("Failed to create new connection",
 						"server", serverName,
 						"error", err,
