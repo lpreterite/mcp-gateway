@@ -91,31 +91,11 @@ jobs:
       - name: Prepare release assets
         run: |
           cd release
-
-          # 添加 macOS launchd 安装脚本
-          if [ -f "../scripts/install-launchd.sh" ]; then
-            cp ../scripts/install-launchd.sh ./install-launchd.sh
-            chmod +x ./install-launchd.sh
-            echo "✓ Added install-launchd.sh"
-          else
-            echo "⚠ Warning: scripts/install-launchd.sh not found"
-          fi
-
-          # 添加 Linux systemd 安装脚本
-          if [ -f "../scripts/install-systemd.sh" ]; then
-            cp ../scripts/install-systemd.sh ./install-systemd.sh
-            chmod +x ./install-systemd.sh
-            echo "✓ Added install-systemd.sh"
-          else
-            echo "⚠ Warning: scripts/install-systemd.sh not found"
-          fi
-
-          # 添加安装问题文档
+          
+          # 添加安装问题文档 (可选)
           if [ -f "../docs/brew-installation-issues.md" ]; then
             cp ../docs/brew-installation-issues.md ./INSTALLATION_GUIDE.md
             echo "✓ Added INSTALLATION_GUIDE.md"
-          else
-            echo "⚠ Warning: docs/brew-installation-issues.md not found"
           fi
 
           ls -la
@@ -236,31 +216,18 @@ jobs:
               ohai "配置文件: #{etc}/mcp-gateway/config.json"
               ohai "日志文件: #{var}/log/mcp-gateway.log"
               ohai ""
-              ohai "⚠️  重要提示："
-              ohai "1. brew services 暂不支持此 formula"
-              ohai "2. 推荐使用 launchd 脚本管理服务（自动解决 PATH 环境变量问题）"
-              ohai ""
-              ohai "📥 获取 launchd 安装脚本："
-              ohai "   curl -fsSL https://github.com/lpreterite/mcp-gateway/releases/download/#{version}/install-launchd.sh -o install-launchd.sh"
-              ohai "   chmod +x install-launchd.sh"
-              ohai ""
-              ohai "🚀 安装并启动服务："
-              ohai "   ./install-launchd.sh install"
+              ohai "🚀 推荐使用内置服务管理功能 (自动检测 PATH 环境变量)："
+              ohai "   1. 编辑配置文件 #{etc}/mcp-gateway/config.json"
+              ohai "   2. 安装并启动服务："
+              ohai "      mcp-gateway service install --config #{etc}/mcp-gateway/config.json"
+              ohai "      mcp-gateway service start"
               ohai ""
               ohai "📋 常用命令："
-              ohai "   ./install-launchd.sh status    # 检查服务状态"
-              ohai "   ./install-launchd.sh logs      # 查看日志"
-              ohai "   ./install-launchd.sh restart   # 重启服务"
-              ohai "   ./install-launchd.sh uninstall # 卸载服务"
-              ohai ""
-              ohai "📖 完整文档："
-              ohai "   https://github.com/lpreterite/mcp-gateway/blob/main/docs/brew-installation-issues.md"
+              ohai "   mcp-gateway service status    # 检查服务状态"
+              ohai "   mcp-gateway service restart   # 重启服务"
+              ohai "   mcp-gateway service uninstall # 卸载服务"
               ohai ""
               ohai "请编辑 #{etc}/mcp-gateway/config.json 添加你的 MCP 服务器"
-              ohai ""
-              ohai "🔧 配置注意事项："
-              ohai "- 使用完整路径（如 /Users/you/.nvm/versions/node/v22.21.0/bin/npx）"
-              ohai "- 不支持 type='remote'，必须使用 type='local'"
             end
 
             test do
