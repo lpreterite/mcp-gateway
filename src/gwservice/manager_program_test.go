@@ -14,9 +14,6 @@ import (
 func TestProgramStruct(t *testing.T) {
 	// program 结构是一个简单的结构体，包含配置和服务器
 	p := &program{}
-	if p == nil {
-		t.Fatal("expected non-nil program")
-	}
 	if p.cfg != nil {
 		t.Error("expected nil cfg initially")
 	}
@@ -49,13 +46,17 @@ func TestProgramStopWithNilServer(t *testing.T) {
 // mockService 模拟 service.Service
 type mockService struct{}
 
-func (m mockService) Start() error                    { return nil }
-func (m mockService) Stop() error                     { return nil }
-func (m mockService) Restart() error                  { return nil }
-func (m mockService) Run() error                      { return nil }
-func (m mockService) Status() (service.Status, error) { return service.StatusUnknown, nil }
-func (m mockService) Logger() (service.Logger, error) { return nil, nil }
-func (m mockService) System() (service.System, error) { return nil, nil }
+func (m mockService) Start() error                                           { return nil }
+func (m mockService) Stop() error                                            { return nil }
+func (m mockService) Restart() error                                         { return nil }
+func (m mockService) Install() error                                         { return nil }
+func (m mockService) Uninstall() error                                       { return nil }
+func (m mockService) Run() error                                             { return nil }
+func (m mockService) Logger(errs chan<- error) (service.Logger, error)       { return nil, nil }
+func (m mockService) SystemLogger(errs chan<- error) (service.Logger, error) { return nil, nil }
+func (m mockService) String() string                                         { return "mockService" }
+func (m mockService) Platform() string                                       { return "mock" }
+func (m mockService) Status() (service.Status, error)                        { return service.StatusUnknown, nil }
 
 // ============ status.go 补充测试 ============
 
@@ -286,19 +287,4 @@ func TestInstallResultJSONSerialization(t *testing.T) {
 	if result.InstallPath != "/path/to/plist" {
 		t.Errorf("unexpected InstallPath: %s", result.InstallPath)
 	}
-}
-
-// ============ 辅助函数 ============
-
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

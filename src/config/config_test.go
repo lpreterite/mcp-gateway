@@ -347,8 +347,8 @@ func TestResolveConfigPathWithEnv(t *testing.T) {
 	}
 
 	// 设置环境变量
-	os.Setenv("MCP_GATEWAY_CONFIG", configPath)
-	defer os.Unsetenv("MCP_GATEWAY_CONFIG")
+	_ = os.Setenv("MCP_GATEWAY_CONFIG", configPath)
+	defer func() { _ = os.Unsetenv("MCP_GATEWAY_CONFIG") }()
 
 	result := ResolveConfigPath("")
 	if result != configPath {
@@ -358,7 +358,7 @@ func TestResolveConfigPathWithEnv(t *testing.T) {
 
 func TestResolveConfigPathEmptyEnv(t *testing.T) {
 	// 确保环境变量为空
-	os.Unsetenv("MCP_GATEWAY_CONFIG")
+	_ = os.Unsetenv("MCP_GATEWAY_CONFIG")
 	// 使用不存在的路径，应该返回空
 	result := ResolveConfigPath("")
 	// result 可能为空也可能找到本地配置，取决于测试环境

@@ -187,7 +187,9 @@ func (c *MCPClientConnection) sendNotificationLocked(method string, params inter
 	}
 
 	data = append(data, '\n')
-	c.process.Stdin().Write(data)
+	if _, err := c.process.Stdin().Write(data); err != nil {
+		slog.Error("Failed to write to stdin", "error", err)
+	}
 }
 
 // readResponses 异步读取响应

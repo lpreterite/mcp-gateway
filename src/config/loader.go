@@ -130,14 +130,15 @@ func findConfigPath() string {
 	}
 
 	// 4. 系统全局配置 / Homebrew 备份 (最后手段)
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		for _, prefix := range []string{"/opt/homebrew", "/usr/local"} {
 			brewConfig := filepath.Join(prefix, "etc/mcp-gateway", DefaultConfigFile)
 			if _, err := os.Stat(brewConfig); err == nil {
 				return brewConfig
 			}
 		}
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		linuxConfig := filepath.Join("/etc/mcp-gateway", DefaultConfigFile)
 		if _, err := os.Stat(linuxConfig); err == nil {
 			return linuxConfig

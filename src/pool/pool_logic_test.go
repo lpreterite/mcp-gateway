@@ -115,7 +115,7 @@ func TestPoolDisconnectAllEmpty(t *testing.T) {
 		MaxConnections: 5,
 	}
 	pool := NewPool(cfg)
-	pool.DisconnectAll()
+	_ = pool.DisconnectAll()
 
 	stats := pool.GetStats()
 	if len(stats) != 0 {

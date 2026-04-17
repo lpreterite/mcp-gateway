@@ -86,7 +86,9 @@ func main() {
 								return nil
 							}
 
-							os.MkdirAll(targetDir, 0755)
+							if err := os.MkdirAll(targetDir, 0755); err != nil {
+								return fmt.Errorf("failed to create config directory: %w", err)
+							}
 							defaultConfig := `{
   "gateway": {
     "host": "0.0.0.0",
@@ -241,7 +243,9 @@ func run(c *cli.Context) error {
 	if !svc.Interactive() {
 		logDir := utils.GetDefaultLogDir()
 		logFile := filepath.Join(logDir, "mcp-gateway.log")
-		os.MkdirAll(logDir, 0755)
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			slog.Warn("Failed to create log directory", "error", err)
+		}
 		f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err == nil {
 			os.Stdout = f

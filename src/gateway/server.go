@@ -287,7 +287,9 @@ func (s *Server) handleSSEPOST(w http.ResponseWriter, r *http.Request) {
 		// 没有 SSE 通道，直接返回响应
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(respData)
+		if _, err := w.Write(respData); err != nil {
+			slog.Error("Failed to write response", "error", err)
+		}
 	}
 }
 

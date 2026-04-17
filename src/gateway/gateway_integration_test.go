@@ -119,7 +119,7 @@ func TestServerHealthEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request health endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, resp.StatusCode)
@@ -150,7 +150,7 @@ func TestServerHealthEndpointInitializing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request health endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, resp.StatusCode)
@@ -188,7 +188,7 @@ func TestServerToolsEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request tools endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, resp.StatusCode)
@@ -215,7 +215,7 @@ func TestServerToolsEndpointNotReady(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request tools endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("Expected status %d, got %d", http.StatusServiceUnavailable, resp.StatusCode)
@@ -249,7 +249,7 @@ func TestServerToolCallEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request tool call endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// 即使没有真实服务器，也应该返回 200
 	if resp.StatusCode != http.StatusOK {
@@ -271,7 +271,7 @@ func TestSSEEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request SSE endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// SSE 应该返回成功
 	if resp.StatusCode != http.StatusOK {
@@ -304,7 +304,7 @@ func TestSSEPOSTEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request SSE POST endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// POST 到 /sse 应该返回 200 或 202
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
@@ -340,7 +340,7 @@ func TestSSEPOSTEndpointWithSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request SSE POST endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// 有 session 时应该返回 Accepted
 	if resp.StatusCode != http.StatusAccepted {
@@ -509,7 +509,7 @@ func TestGracefulShutdownChannel(t *testing.T) {
 	// 注意：不调用 SetupRoutes()，因为 Start() 会调用
 
 	// 启动服务器
-	go srv.Start()
+	_ = srv.Start()
 	time.Sleep(100 * time.Millisecond)
 
 	// 验证服务器已启动
@@ -538,7 +538,7 @@ func TestServerMultipleStartStops(t *testing.T) {
 		// 注意：不调用 SetupRoutes()，因为 Start() 会调用
 
 		// 启动
-		go srv.Start()
+		_ = srv.Start()
 		time.Sleep(100 * time.Millisecond)
 
 		// 验证已启动
@@ -740,7 +740,7 @@ func TestHandleMessagesEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request messages endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, resp.StatusCode)
@@ -766,7 +766,7 @@ func TestHandleMessagesEndpointMissingSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to request messages endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, resp.StatusCode)
