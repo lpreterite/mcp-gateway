@@ -474,10 +474,27 @@ func (s *Server) callTool(name string, args map[string]interface{}) (*pool.ToolC
 		originalName = tool.OriginalName
 	}
 
+	slog.Info("Calling tool",
+		"tool", name,
+		"originalName", originalName,
+		"server", serverName,
+	)
+
 	result, err := s.pool.CallTool(serverName, originalName, args)
 	if err != nil {
+		slog.Error("Tool call failed",
+			"tool", name,
+			"server", serverName,
+			"error", err,
+		)
 		return nil, err
 	}
+
+	slog.Info("Tool call succeeded",
+		"tool", name,
+		"server", serverName,
+		"isError", result.IsError,
+	)
 
 	return result, nil
 }
