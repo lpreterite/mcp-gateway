@@ -85,6 +85,8 @@ func (c *MCPClientConnection) Connect() error {
 		return fmt.Errorf("failed to start process: %w", err)
 	}
 
+	time.Sleep(100 * time.Millisecond)
+
 	c.connected = true
 	c.lastUsed = time.Now()
 
@@ -97,6 +99,104 @@ func (c *MCPClientConnection) Connect() error {
 	go c.readResponses()
 
 	return nil
+}
+
+// Initialize MCP 客户端连接初始化（发送 initialize 握手）
+func (c *MCPClientConnection) Initialize() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.connected {
+		return fmt.Errorf("not connected")
+	}
+
+	result, err := c.sendRequestLocked("initialize", map[string]interface{}{
+		"protocolVersion": "2024-11-05",
+		"capabilities":    map[string]interface{}{},
+		"clientInfo": map[string]interface{}{
+			"name":    "mcp-gateway",
+			"version": "1.0.0",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("initialize failed: %w", err)
+	}
+
+	c.sendNotificationLocked("initialized", map[string]interface{}{})
+
+	slog.Info("MCP client initialized",
+		"server", c.config.Name,
+		"result", string(*result),
+	)
+
+	return nil
+}
+
+// sendRequestLocked 发送 JSON-RPC 请求（调用方需持有 mu 锁）
+func (c *MCPClientConnection) sendRequestLocked(method string, params interface{}) (*json.RawMessage, error) {
+	id := c.requestID
+	c.requestID++
+	c.pendingMu.Lock()
+	ch := make(chan *json.RawMessage, 1)
+	c.pending[id] = ch
+	c.pendingMu.Unlock()
+
+	req := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"method":  method,
+	}
+	if params != nil {
+		req["params"] = params
+	}
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		c.pendingMu.Lock()
+		delete(c.pending, id)
+		c.pendingMu.Unlock()
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	data = append(data, '\n')
+
+	_, err = c.stdin.Write(data)
+	if err != nil {
+		c.pendingMu.Lock()
+		delete(c.pending, id)
+		c.pendingMu.Unlock()
+		return nil, fmt.Errorf("failed to write request: %w", err)
+	}
+
+	select {
+	case result := <-ch:
+		return result, nil
+	case <-time.After(30 * time.Second):
+		c.pendingMu.Lock()
+		delete(c.pending, id)
+		c.pendingMu.Unlock()
+		return nil, fmt.Errorf("request timeout")
+	}
+}
+
+// sendNotificationLocked 发送 JSON-RPC 通知（调用方需持有 mu 锁）
+func (c *MCPClientConnection) sendNotificationLocked(method string, params interface{}) {
+	req := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  method,
+	}
+	if params != nil {
+		req["params"] = params
+	}
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		slog.Warn("Failed to marshal notification", "error", err)
+		return
+	}
+
+	data = append(data, '\n')
+	c.stdin.Write(data)
 }
 
 // readResponses 异步读取响应
@@ -358,6 +458,14 @@ func (p *Pool) Initialize(servers []config.ServerConfig) error {
 			client := NewMCPClientConnection(server)
 			if err := client.Connect(); err != nil {
 				slog.Warn("Failed to create connection",
+					"server", server.Name,
+					"index", i,
+					"error", err,
+				)
+				continue
+			}
+			if err := client.Initialize(); err != nil {
+				slog.Warn("Failed to initialize MCP client",
 					"server", server.Name,
 					"index", i,
 					"error", err,
