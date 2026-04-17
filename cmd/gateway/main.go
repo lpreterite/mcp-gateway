@@ -6,14 +6,16 @@ import (
 	"log/slog"
 	"os"
 
+	svc "github.com/kardianos/service"
 	"github.com/lpreterite/mcp-gateway/src/config"
 	"github.com/lpreterite/mcp-gateway/src/gateway"
+	"github.com/lpreterite/mcp-gateway/src/service"
 	"github.com/lpreterite/mcp-gateway/src/stdio"
 	"github.com/urfave/cli/v2"
 )
 
 var (
-	version   = "1.0.0"
+	version   = "1.0.3"
 	buildTime = "unknown"
 )
 
@@ -55,6 +57,99 @@ func main() {
 				Value: "info",
 			},
 		},
+		Commands: []*cli.Command{
+			{
+				Name:  "service",
+				Usage: "Service management (install, uninstall, start, stop, restart, status)",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "install",
+						Usage: "Install as a system service",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "config",
+								Aliases: []string{"c"},
+								Usage:   "Path to config file to use in service",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							s, err := service.NewManager(c.String("config"))
+							if err != nil {
+								return err
+							}
+							return s.Install()
+						},
+					},
+					{
+						Name:  "uninstall",
+						Usage: "Uninstall the system service",
+						Action: func(c *cli.Context) error {
+							s, err := service.NewManager("")
+							if err != nil {
+								return err
+							}
+							return s.Uninstall()
+						},
+					},
+					{
+						Name:  "start",
+						Usage: "Start the system service",
+						Action: func(c *cli.Context) error {
+							s, err := service.NewManager("")
+							if err != nil {
+								return err
+							}
+							return s.Start()
+						},
+					},
+					{
+						Name:  "stop",
+						Usage: "Stop the system service",
+						Action: func(c *cli.Context) error {
+							s, err := service.NewManager("")
+							if err != nil {
+								return err
+							}
+							return s.Stop()
+						},
+					},
+					{
+						Name:  "restart",
+						Usage: "Restart the system service",
+						Action: func(c *cli.Context) error {
+							s, err := service.NewManager("")
+							if err != nil {
+								return err
+							}
+							return s.Restart()
+						},
+					},
+					{
+						Name:  "status",
+						Usage: "Check the system service status",
+						Action: func(c *cli.Context) error {
+							s, err := service.NewManager("")
+							if err != nil {
+								return err
+							}
+							status, err := s.Status()
+							if err != nil {
+								return err
+							}
+							switch status {
+							case svc.StatusRunning:
+								fmt.Println("Service is running")
+							case svc.StatusStopped:
+								fmt.Println("Service is stopped")
+							default:
+								fmt.Println("Service status unknown")
+							}
+							return nil
+						},
+					},
+				},
+			},
+		},
 		Action: run,
 	}
 
@@ -82,6 +177,10 @@ func run(c *cli.Context) error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slogLevel,
 	})))
+
+	// 如果是通过服务启动的，处理服务运行逻辑
+	// 注意：kardianos/service 在运行二进制时，如果它已经在运行中，它会接管
+	// 但在这里我们先尝试加载配置并直接运行
 
 	// 加载配置
 	configPath := c.String("config")

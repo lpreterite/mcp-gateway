@@ -83,26 +83,36 @@ mcp-gateway --config $(brew --prefix)/etc/mcp-gateway/config.json
 - `GET /sse` - SSE 连接
 - `POST /messages?sessionId=x` - 发送消息
 
-### 服务管理
+### 服务管理 (推荐 ⭐)
+
+`mcp-gateway` 内置了跨平台服务管理功能，支持自动检测 PATH 环境变量（包括 Homebrew, nvm, fnm, uv 等），确保服务能正确启动你的 MCP 服务器。
 
 ```bash
-brew services start mcp-gateway    # 启动服务
-brew services stop mcp-gateway     # 停止服务
-brew services restart mcp-gateway  # 重启服务
-brew services list                 # 查看所有服务状态
-tail -f $(brew --prefix)/var/log/mcp-gateway.log   # 查看日志
+# 安装为系统服务 (macOS 需要 LaunchAgents 权限，Linux 需要 sudo)
+mcp-gateway service install --config $(brew --prefix)/etc/mcp-gateway/config.json
+
+# 启动/停止/重启
+mcp-gateway service start
+mcp-gateway service stop
+mcp-gateway service restart
+
+# 检查状态
+mcp-gateway service status
+
+# 卸载服务
+mcp-gateway service uninstall
 ```
 
-对于手动运行方式，按 `Ctrl+C` 即可优雅停止服务。
-
-## CLI 参数
+### CLI 参数
 
 | 参数 | 短选项 | 默认值 | 说明 |
 |------|--------|--------|------|
 | `--config <path>` | `-c` | 自动查找 | 配置文件路径 |
-| `--host <addr>` | `-H` | `0.0.0.0` | 监听地址 |
+| `--host <addr>` | - | `0.0.0.0` | 监听地址 |
 | `--port <port>` | `-p` | `4298` | 监听端口 |
 | `--stdio` | - | `false` | 以 stdio 模式运行 |
+| `--log-level` | - | `info` | 日志级别 (debug, info, warn, error) |
+| `service <cmd>` | - | - | 服务管理 (install, uninstall, start, stop, restart, status) |
 | `--version` | `-v` | - | 显示版本 |
 | `--help` | `-h` | - | 显示帮助 |
 
