@@ -13,9 +13,9 @@
 |------|-----|
 | **里程碑** | M4: 服务管理 |
 | **Sprint 编号** | 5 |
-| **状态** | ⏳ 待开始 |
-| **开始日期** | 2026-04-__ |
-| **结束日期** | 2026-04-__ |
+| **状态** | ✅ 已完成 |
+| **开始日期** | 2026-04-17 |
+| **结束日期** | 2026-04-17 |
 
 ---
 
@@ -32,10 +32,10 @@
 
 ## 任务清单
 
-- [ ] `ServiceFacade` 统一命令入口
-- [ ] macOS `PlatformAdapter`（launchd 适配）
-- [ ] Linux `PlatformAdapter`（systemd 适配）
-- [ ] 分层状态探测与诊断
+- [x] `ServiceFacade` 统一命令入口
+- [x] macOS `PlatformAdapter`（launchd 适配）
+- [x] Linux `PlatformAdapter`（systemd 适配）
+- [x] 分层状态探测与诊断
 
 ---
 
@@ -43,22 +43,22 @@
 
 | 交付物 | 描述 | 状态 |
 |--------|------|------|
-| `service install/start/stop/restart/status` 命令正常 | 服务管理命令完整可用 | ⏳ |
-| 分层诊断输出 | 可以输出详细的状态诊断信息 | ⏳ |
-| 平台自愈能力 | 某些错误条件下自动恢复 | ⏳ |
+| `service install/start/stop/restart/status` 命令正常 | 服务管理命令完整可用 | ✅ |
+| 分层诊断输出 | 可以输出详细的状态诊断信息 | ✅ |
+| 平台自愈能力 | 某些错误条件下自动恢复 | ✅ |
 
 ---
 
 ## 验收标准
 
-- [ ] `service install` 可以在对应平台安装服务
-- [ ] `service start` 可以启动服务
-- [ ] `service stop` 可以停止服务
-- [ ] `service restart` 可以重启服务
-- [ ] `service status` 可以查看服务状态
-- [ ] macOS 上使用 launchd
-- [ ] Linux 上使用 systemd
-- [ ] 诊断输出包含分层状态信息
+- [x] `service install` 可以在对应平台安装服务
+- [x] `service start` 可以启动服务
+- [x] `service stop` 可以停止服务
+- [x] `service restart` 可以重启服务
+- [x] `service status` 可以查看服务状态
+- [x] macOS 上使用 launchd
+- [x] Linux 上使用 systemd
+- [x] 诊断输出包含分层状态信息
 
 ---
 
