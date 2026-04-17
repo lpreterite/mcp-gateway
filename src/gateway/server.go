@@ -225,6 +225,18 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	resp.JSONRPC = "2.0"
 
 	switch req.Method {
+	case "initialize":
+		resp.Result = map[string]interface{}{
+			"protocolVersion": "2024-11-05",
+			"capabilities": map[string]interface{}{
+				"tools": struct{}{},
+			},
+			"serverInfo": map[string]interface{}{
+				"name":    "mcp-gateway",
+				"version": "1.0.0",
+			},
+		}
+
 	case "tools/list":
 		tools := s.registry.GetAllTools()
 		toolResponses := make([]map[string]interface{}, 0, len(tools))

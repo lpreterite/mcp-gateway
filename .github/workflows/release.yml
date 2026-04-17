@@ -88,10 +88,48 @@ jobs:
           echo "Build complete!"
           ls -la release/
 
+      - name: Prepare release assets
+        run: |
+          cd release
+
+          # 添加 macOS launchd 安装脚本
+          if [ -f "../scripts/install-launchd.sh" ]; then
+            cp ../scripts/install-launchd.sh ./install-launchd.sh
+            chmod +x ./install-launchd.sh
+            echo "✓ Added install-launchd.sh"
+          else
+            echo "⚠ Warning: scripts/install-launchd.sh not found"
+          fi
+
+          # 添加 Linux systemd 安装脚本
+          if [ -f "../scripts/install-systemd.sh" ]; then
+            cp ../scripts/install-systemd.sh ./install-systemd.sh
+            chmod +x ./install-systemd.sh
+            echo "✓ Added install-systemd.sh"
+          else
+            echo "⚠ Warning: scripts/install-systemd.sh not found"
+          fi
+
+          # 添加安装问题文档
+          if [ -f "../docs/brew-installation-issues.md" ]; then
+            cp ../docs/brew-installation-issues.md ./INSTALLATION_GUIDE.md
+            echo "✓ Added INSTALLATION_GUIDE.md"
+          else
+            echo "⚠ Warning: docs/brew-installation-issues.md not found"
+          fi
+
+          ls -la
+
       - name: Calculate checksums
         run: |
           cd release
-          sha256sum * > checksums.txt
+          # 使用跨平台兼容的 checksum 计算方式
+          for file in *; do
+            if [ -f "$file" ]; then
+              checksum=$(openssl sha256 "$file" | awk '{print $NF}')
+              echo "${checksum}  ${file}" >> checksums.txt
+            fi
+          done
           cat checksums.txt
 
       - name: Create GitHub Release
@@ -129,20 +167,14 @@ jobs:
 
           mkdir -p Formula
 
+          # 下载 macOS 版本的二进制文件并计算 SHA256
+          echo "Downloading darwin-arm64..."
           curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-darwin-arm64 -o mcp-gateway-darwin-arm64
-          SHA256_DARWIN_ARM64=$(sha256sum mcp-gateway-darwin-arm64 | awk '{print $1}')
+          SHA256_DARWIN_ARM64=$(openssl sha256 mcp-gateway-darwin-arm64 | awk '{print $NF}')
 
+          echo "Downloading darwin-amd64..."
           curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-darwin-amd64 -o mcp-gateway-darwin-amd64
-          SHA256_DARWIN_AMD64=$(sha256sum mcp-gateway-darwin-amd64 | awk '{print $1}')
-
-          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-linux-amd64 -o mcp-gateway-linux-amd64
-          SHA256_LINUX_AMD64=$(sha256sum mcp-gateway-linux-amd64 | awk '{print $1}')
-
-          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-linux-arm64 -o mcp-gateway-linux-arm64
-          SHA256_LINUX_ARM64=$(sha256sum mcp-gateway-linux-arm64 | awk '{print $1}')
-
-          curl -sL https://github.com/lpreterite/mcp-gateway/releases/download/${VERSION}/mcp-gateway-windows-amd64.exe -o mcp-gateway-windows-amd64.exe
-          SHA256_WINDOWS_AMD64=$(sha256sum mcp-gateway-windows-amd64.exe | awk '{print $1}')
+          SHA256_DARWIN_AMD64=$(openssl sha256 mcp-gateway-darwin-amd64 | awk '{print $NF}')
 
           cat > Formula/mcp-gateway.rb << 'RUBY_EOF'
           class McpGateway < Formula
@@ -150,7 +182,7 @@ jobs:
             homepage "https://github.com/lpreterite/mcp-gateway"
             version "VERSION"
 
-            if OS.mac?
+            on_macos do
               if Hardware::CPU.arm?
                 url "https://github.com/lpreterite/mcp-gateway/releases/download/VERSION/mcp-gateway-darwin-arm64"
                 sha256 "SHA256_DARWIN_ARM64"
@@ -160,28 +192,12 @@ jobs:
               end
             end
 
-            if OS.linux?
-              if Hardware::CPU.arm?
-                url "https://github.com/lpreterite/mcp-gateway/releases/download/VERSION/mcp-gateway-linux-arm64"
-                sha256 "SHA256_LINUX_ARM64"
-              else
-                url "https://github.com/lpreterite/mcp-gateway/releases/download/VERSION/mcp-gateway-linux-amd64"
-                sha256 "SHA256_LINUX_AMD64"
-              end
-            end
-
             def install
-              if OS.mac?
+              on_macos do
                 if Hardware::CPU.arm?
                   bin.install "mcp-gateway-darwin-arm64" => "mcp-gateway"
                 else
                   bin.install "mcp-gateway-darwin-amd64" => "mcp-gateway"
-                end
-              else
-                if Hardware::CPU.arm?
-                  bin.install "mcp-gateway-linux-arm64" => "mcp-gateway"
-                else
-                  bin.install "mcp-gateway-linux-amd64" => "mcp-gateway"
                 end
               end
 
@@ -220,32 +236,44 @@ jobs:
               ohai "配置文件: #{etc}/mcp-gateway/config.json"
               ohai "日志文件: #{var}/log/mcp-gateway.log"
               ohai ""
+              ohai "⚠️  重要提示："
+              ohai "1. brew services 暂不支持此 formula"
+              ohai "2. 推荐使用 launchd 脚本管理服务（自动解决 PATH 环境变量问题）"
+              ohai ""
+              ohai "📥 获取 launchd 安装脚本："
+              ohai "   curl -fsSL https://github.com/lpreterite/mcp-gateway/releases/download/#{version}/install-launchd.sh -o install-launchd.sh"
+              ohai "   chmod +x install-launchd.sh"
+              ohai ""
+              ohai "🚀 安装并启动服务："
+              ohai "   ./install-launchd.sh install"
+              ohai ""
+              ohai "📋 常用命令："
+              ohai "   ./install-launchd.sh status    # 检查服务状态"
+              ohai "   ./install-launchd.sh logs      # 查看日志"
+              ohai "   ./install-launchd.sh restart   # 重启服务"
+              ohai "   ./install-launchd.sh uninstall # 卸载服务"
+              ohai ""
+              ohai "📖 完整文档："
+              ohai "   https://github.com/lpreterite/mcp-gateway/blob/main/docs/brew-installation-issues.md"
+              ohai ""
               ohai "请编辑 #{etc}/mcp-gateway/config.json 添加你的 MCP 服务器"
               ohai ""
-              ohai "启动服务: brew services start #{name}"
-              ohai "停止服务: brew services stop #{name}"
-              ohai "查看日志: tail -f #{var}/log/mcp-gateway.log"
-            end
-
-            service do
-              run [opt_bin/"mcp-gateway", "--config", etc/"mcp-gateway/config.json"]
-              keep_alive true
-              working_dir HOMEBREW_PREFIX
-              log_path "#{var}/log/mcp-gateway.log"
-              error_log_path "#{var}/log/mcp-gateway.err.log"
+              ohai "🔧 配置注意事项："
+              ohai "- 使用完整路径（如 /Users/you/.nvm/versions/node/v22.21.0/bin/npx）"
+              ohai "- 不支持 type='remote'，必须使用 type='local'"
             end
 
             test do
-              system "#{bin}/mcp-gateway", "--version"
+              assert_match /version/, shell_output("#{bin}/mcp-gateway --version")
+              assert_match /mcp-gateway/, shell_output("#{bin}/mcp-gateway --help")
             end
           end
           RUBY_EOF
 
+          # 替换变量
           sed -i.bak "s/VERSION/${VERSION}/g" Formula/mcp-gateway.rb
           sed -i.bak "s/SHA256_DARWIN_ARM64/${SHA256_DARWIN_ARM64}/g" Formula/mcp-gateway.rb
           sed -i.bak "s/SHA256_DARWIN_AMD64/${SHA256_DARWIN_AMD64}/g" Formula/mcp-gateway.rb
-          sed -i.bak "s/SHA256_LINUX_ARM64/${SHA256_LINUX_ARM64}/g" Formula/mcp-gateway.rb
-          sed -i.bak "s/SHA256_LINUX_AMD64/${SHA256_LINUX_AMD64}/g" Formula/mcp-gateway.rb
           rm -f Formula/mcp-gateway.rb.bak
 
           echo "Formula created successfully"
