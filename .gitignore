@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 mcp-gateway
+main
 *.exe
 *.dll
 *.so
