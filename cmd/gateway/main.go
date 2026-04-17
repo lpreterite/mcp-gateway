@@ -5,17 +5,19 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	svc "github.com/kardianos/service"
 	"github.com/lpreterite/mcp-gateway/src/config"
 	"github.com/lpreterite/mcp-gateway/src/gateway"
-	"github.com/lpreterite/mcp-gateway/src/service"
+	"github.com/lpreterite/mcp-gateway/src/gwservice"
 	"github.com/lpreterite/mcp-gateway/src/stdio"
+	"github.com/lpreterite/mcp-gateway/src/utils"
 	"github.com/urfave/cli/v2"
 )
 
 var (
-	version   = "1.0.3"
+	version   = "1.2.0"
 	buildTime = "unknown"
 )
 
@@ -73,7 +75,7 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							s, err := service.NewManager(c.String("config"))
+							s, err := gwservice.NewManager(c.String("config"))
 							if err != nil {
 								return err
 							}
@@ -84,7 +86,7 @@ func main() {
 						Name:  "uninstall",
 						Usage: "Uninstall the system service",
 						Action: func(c *cli.Context) error {
-							s, err := service.NewManager("")
+							s, err := gwservice.NewManager("")
 							if err != nil {
 								return err
 							}
@@ -95,7 +97,7 @@ func main() {
 						Name:  "start",
 						Usage: "Start the system service",
 						Action: func(c *cli.Context) error {
-							s, err := service.NewManager("")
+							s, err := gwservice.NewManager("")
 							if err != nil {
 								return err
 							}
@@ -106,7 +108,7 @@ func main() {
 						Name:  "stop",
 						Usage: "Stop the system service",
 						Action: func(c *cli.Context) error {
-							s, err := service.NewManager("")
+							s, err := gwservice.NewManager("")
 							if err != nil {
 								return err
 							}
@@ -117,7 +119,7 @@ func main() {
 						Name:  "restart",
 						Usage: "Restart the system service",
 						Action: func(c *cli.Context) error {
-							s, err := service.NewManager("")
+							s, err := gwservice.NewManager("")
 							if err != nil {
 								return err
 							}
@@ -128,7 +130,7 @@ func main() {
 						Name:  "status",
 						Usage: "Check the system service status",
 						Action: func(c *cli.Context) error {
-							s, err := service.NewManager("")
+							s, err := gwservice.NewManager("")
 							if err != nil {
 								return err
 							}
@@ -178,26 +180,10 @@ func run(c *cli.Context) error {
 		Level: slogLevel,
 	})))
 
-	// 如果是通过服务启动的，处理服务运行逻辑
-	// 注意：kardianos/service 在运行二进制时，如果它已经在运行中，它会接管
-	// 但在这里我们先尝试加载配置并直接运行
-
 	// 加载配置
 	configPath := c.String("config")
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		// 如果没有配置文件，显示配置路径帮助
-		if configPath == "" {
-			slog.Error("Failed to load config",
-				"error", err,
-				"hint", config.ConfigPathsHelp(),
-			)
-		} else {
-			slog.Error("Failed to load config",
-				"error", err,
-				"path", configPath,
-			)
-		}
 		return fmt.Errorf("config error: %w", err)
 	}
 
@@ -207,6 +193,22 @@ func run(c *cli.Context) error {
 	}
 	if port := c.Int("port"); port > 0 {
 		cfg.Gateway.Port = port
+	}
+
+	// 如果是非交互式模式（即作为服务运行），重定向日志
+	if !svc.Interactive() {
+		logDir := utils.GetDefaultLogDir()
+		logFile := filepath.Join(logDir, "mcp-gateway.log")
+		os.MkdirAll(logDir, 0755)
+		f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err == nil {
+			os.Stdout = f
+			os.Stderr = f
+			slog.SetDefault(slog.New(slog.NewTextHandler(f, &slog.HandlerOptions{
+				Level: slogLevel,
+			})))
+			slog.Info("Running as service, logs redirected", "path", logFile)
+		}
 	}
 
 	// Stdio 模式
