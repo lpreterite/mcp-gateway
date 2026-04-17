@@ -379,3 +379,145 @@ func (w *noFlusherWriter) Write(b []byte) (int, error) {
 func (w *noFlusherWriter) WriteHeader(statusCode int) {
 	w.ResponseRecorder.WriteHeader(statusCode)
 }
+
+// Note: httptest.ResponseRecorder 实现了 http.Flusher 接口，
+// 因此无法在单元测试中创建不支持 Flusher 的场景。
+// NewSSETransport 返回 nil 的分支在实际使用中由底层 http.ResponseWriter 决定。
+
+// TestSSETransportSendToClosedChannel 测试 Notify 的默认分支
+func TestNotifierNotifyFullChannel(t *testing.T) {
+	n := NewNotifier()
+	ch := make(chan string, 1)
+	ch <- "first" // 填满通道
+
+	n.Add("session-full", ch)
+
+	// Notify 应该不会阻塞，即使通道满了
+	n.Notify("test message")
+	// 验证第一个消息仍在通道中
+	select {
+	case msg := <-ch:
+		if msg != "first" {
+			t.Errorf("Expected 'first', got '%s'", msg)
+		}
+	default:
+		t.Error("First message should still be in channel")
+	}
+}
+
+// TestJSONRPCToolParams 测试 JSON-RPC 工具参数序列化
+func TestJSONRPCToolParams(t *testing.T) {
+	params := JSONRPCToolParams{
+		Name: "test-tool",
+		Arguments: map[string]interface{}{
+			"key1": "value1",
+			"key2": float64(123), // JSON numbers are float64
+		},
+	}
+
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	var decoded JSONRPCToolParams
+	err = json.Unmarshal(data, &decoded)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if decoded.Name != "test-tool" {
+		t.Errorf("Name = %q, want 'test-tool'", decoded.Name)
+	}
+	if decoded.Arguments["key1"] != "value1" {
+		t.Errorf("Arguments[key1] = %v, want 'value1'", decoded.Arguments["key1"])
+	}
+}
+
+// TestToolCallResult 测试工具调用结果序列化
+func TestToolCallResult(t *testing.T) {
+	result := ToolCallResult{
+		Content: []ContentBlock{
+			{Type: "text", Text: "output1"},
+			{Type: "text", Text: "output2"},
+		},
+		IsError: false,
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	var decoded ToolCallResult
+	err = json.Unmarshal(data, &decoded)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if len(decoded.Content) != 2 {
+		t.Errorf("len(Content) = %d, want 2", len(decoded.Content))
+	}
+	if decoded.IsError {
+		t.Error("IsError should be false")
+	}
+}
+
+// TestToolCallResponseWithError 测试包含错误的响应
+func TestToolCallResponseWithError(t *testing.T) {
+	resp := ToolCallResponse{
+		Error: "tool execution failed",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	var decoded ToolCallResponse
+	err = json.Unmarshal(data, &decoded)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if decoded.Error != "tool execution failed" {
+		t.Errorf("Error = %q, want 'tool execution failed'", decoded.Error)
+	}
+	if decoded.Result != nil {
+		t.Error("Result should be nil when Error is set")
+	}
+}
+
+// TestToolResponse 测试工具响应序列化
+func TestToolResponse(t *testing.T) {
+	resp := ToolResponse{
+		Name:        "my-tool",
+		Description: "A useful tool",
+		ServerName:  "my-server",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	var decoded ToolResponse
+	err = json.Unmarshal(data, &decoded)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if decoded.Name != "my-tool" {
+		t.Errorf("Name = %q, want 'my-tool'", decoded.Name)
+	}
+}
+
+// TestNotifierSendToNonExistentSession 测试发送给不存在的会话
+func TestNotifierSendToNonExistentSession(t *testing.T) {
+	n := NewNotifier()
+
+	err := n.Send("non-existent-session", "message")
+	if err == nil {
+		t.Error("Expected error when sending to non-existent session")
+	}
+}
