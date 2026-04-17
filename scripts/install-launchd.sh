@@ -8,9 +8,6 @@
 
 set -e
 
-# 检测操作系统 (必须在开头调用)
-detect_os
-
 # 检测操作系统
 detect_os() {
     case "$(uname -s)" in
@@ -30,6 +27,9 @@ detect_os() {
     esac
 }
 
+# 在开头检测操作系统
+detect_os
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -39,29 +39,50 @@ NC='\033[0m' # No Color
 # 配置
 PLIST_NAME="com.mcp-gateway"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
-GATEWAY_BIN="/opt/homebrew/opt/mcp-gateway/bin/mcp-gateway"
-CONFIG_FILE="/opt/homebrew/etc/mcp-gateway/config.json"
-LOG_FILE="/opt/homebrew/var/log/mcp-gateway.log"
-ERR_LOG_FILE="/opt/homebrew/var/log/mcp-gateway.err.log"
+
+# 使用 brew --prefix 动态获取 Homebrew 前缀，避免硬编码路径
+HOMEBREW_PREFIX=$(brew --prefix 2>/dev/null || echo "/opt/homebrew")
+GATEWAY_BIN="${HOMEBREW_PREFIX}/opt/mcp-gateway/bin/mcp-gateway"
+CONFIG_FILE="${HOMEBREW_PREFIX}/etc/mcp-gateway/config.json"
+LOG_DIR="${HOMEBREW_PREFIX}/var/log"
+LOG_FILE="${LOG_DIR}/mcp-gateway.log"
+ERR_LOG_FILE="${LOG_DIR}/mcp-gateway.err.log"
 
 # 检测用户 PATH 组件
 detect_paths() {
     local paths=()
 
-    # 添加 Homebrew 路径
-    if [ -d "/opt/homebrew/bin" ]; then
-        paths+=("/opt/homebrew/bin")
+    # 动态添加 Homebrew 路径
+    if [ -d "${HOMEBREW_PREFIX}/bin" ]; then
+        paths+=("${HOMEBREW_PREFIX}/bin")
     fi
-    if [ -d "/opt/homebrew/sbin" ]; then
-        paths+=("/opt/homebrew/sbin")
+    if [ -d "${HOMEBREW_PREFIX}/sbin" ]; then
+        paths+=("${HOMEBREW_PREFIX}/sbin")
     fi
+
+    # 常用 Homebrew 路径（兼容 Intel 和 Apple Silicon）
+    for prefix in "/opt/homebrew" "/usr/local" "/home/linuxbrew/.linuxbrew"; do
+        if [ -d "${prefix}/bin" ] && [ "${prefix}" != "$HOMEBREW_PREFIX" ]; then
+            paths+=("${prefix}/bin")
+        fi
+        if [ -d "${prefix}/sbin" ] && [ "${prefix}" != "$HOMEBREW_PREFIX" ]; then
+            paths+=("${prefix}/sbin")
+        fi
+    done
 
     # 检测 Node.js (nvm)
     if [ -n "$NVM_DIR" ] && [ -d "$NVM_DIR/versions/node" ]; then
-        # 获取最新的 Node.js 版本
         local latest_node=$(ls -t "$NVM_DIR/versions/node" 2>/dev/null | head -1)
         if [ -n "$latest_node" ]; then
             paths+=("$NVM_DIR/versions/node/$latest_node/bin")
+        fi
+    fi
+
+    # 检测 Node.js (fnm)
+    if command -v fnm &> /dev/null; then
+        local fnm_dir=$(fnm env --dir 2>/dev/null | grep "FNM_DIR" | cut -d'=' -f2)
+        if [ -n "$fnm_dir" ]; then
+            paths+=("$fnm_dir")
         fi
     fi
 
@@ -69,6 +90,12 @@ detect_paths() {
     if command -v uv &> /dev/null; then
         local uv_path=$(which uv | sed 's|/uv$||')
         paths+=("$uv_path")
+    fi
+
+    # 检测 pipx
+    if command -v pipx &> /dev/null; then
+        local pipx_path=$(which pipx | sed 's|/pipx$||')
+        paths+=("$pipx_path")
     fi
 
     # 添加标准系统路径
@@ -82,9 +109,25 @@ detect_paths() {
 create_plist() {
     echo -e "${GREEN}创建 launchd plist 文件...${NC}"
 
-    # 确保 log 目录存在
-    sudo mkdir -p "$(dirname "$LOG_FILE")"
-    sudo mkdir -p "$(dirname "$CONFIG_FILE")"
+    # 确保配置目录存在（用户可写）
+    if [ ! -d "${CONFIG_FILE%/*}" ]; then
+        echo -e "${YELLOW}创建配置目录: ${CONFIG_FILE%/*}${NC}"
+        mkdir -p "${CONFIG_FILE%/*}" 2>/dev/null || {
+            echo -e "${RED}错误: 无法创建配置目录 ${CONFIG_FILE%/*}${NC}"
+            echo -e "${YELLOW}请手动运行: mkdir -p ${CONFIG_FILE%/*}${NC}"
+            exit 1
+        }
+    fi
+
+    # 确保日志目录存在（可能需要 sudo）
+    if [ ! -d "$LOG_DIR" ]; then
+        echo -e "${YELLOW}创建日志目录: $LOG_DIR${NC}"
+        sudo mkdir -p "$LOG_DIR" 2>/dev/null || {
+            echo -e "${RED}错误: 无法创建日志目录 $LOG_DIR${NC}"
+            echo -e "${YELLOW}请手动运行: sudo mkdir -p $LOG_DIR${NC}"
+            exit 1
+        }
+    fi
 
     # 检测 PATH
     DETECTED_PATH=$(detect_paths)
@@ -118,7 +161,7 @@ create_plist() {
   <key>StandardErrorPath</key>
   <string>${ERR_LOG_FILE}</string>
   <key>WorkingDirectory</key>
-  <string>/opt/homebrew/etc/mcp-gateway</string>
+  <string>${CONFIG_FILE%/*}</string>
 </dict>
 </plist>
 EOF
