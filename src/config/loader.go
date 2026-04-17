@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -103,7 +104,17 @@ func findConfigPath() string {
 		}
 	}
 
-	// 3. ./config/servers.json (本地开发)
+	// 3. Homebrew etc 目录 (macOS)
+	if runtime.GOOS == "darwin" {
+		for _, prefix := range []string{"/opt/homebrew", "/usr/local"} {
+			brewConfig := filepath.Join(prefix, "etc/mcp-gateway", DefaultConfigFile)
+			if _, err := os.Stat(brewConfig); err == nil {
+				return brewConfig
+			}
+		}
+	}
+
+	// 4. ./config/servers.json (本地开发)
 	localConfig := filepath.Join("config", "servers.json")
 	if _, err := os.Stat(localConfig); err == nil {
 		return localConfig
@@ -167,6 +178,14 @@ func GetConfigPaths() []string {
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		globalConfig := filepath.Join(homeDir, DefaultConfigDir, DefaultConfigFile)
 		paths = append(paths, fmt.Sprintf("  - %s", globalConfig))
+	}
+
+	// Homebrew etc 目录 (macOS)
+	if runtime.GOOS == "darwin" {
+		for _, prefix := range []string{"/opt/homebrew", "/usr/local"} {
+			brewConfig := filepath.Join(prefix, "etc/mcp-gateway", DefaultConfigFile)
+			paths = append(paths, fmt.Sprintf("  - %s (Homebrew)", brewConfig))
+		}
 	}
 
 	// ./config/servers.json
