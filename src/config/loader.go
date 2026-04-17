@@ -86,25 +86,31 @@ func Load(configPath string) (*Config, error) {
 	return &cfg, nil
 }
 
-// findConfigPath 自动查找配置文件路径
+// findConfigPath 自动查找配置文件路径，遵循 Unix 惯例优先级
 func findConfigPath() string {
-	// 1. MCP_GATEWAY_CONFIG 环境变量
+	// 1. 显式环境变量优先级最高
 	if envPath := os.Getenv("MCP_GATEWAY_CONFIG"); envPath != "" {
 		if _, err := os.Stat(envPath); err == nil {
 			return envPath
 		}
 	}
 
-	// 2. ~/.config/mcp-gateway/config.json
+	// 2. XDG 标准 / 用户家目录 (Unix 惯例)
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		globalConfig := filepath.Join(homeDir, DefaultConfigDir, DefaultConfigFile)
-		if _, err := os.Stat(globalConfig); err == nil {
-			return globalConfig
+		userConfig := filepath.Join(homeDir, DefaultConfigDir, DefaultConfigFile)
+		if _, err := os.Stat(userConfig); err == nil {
+			return userConfig
 		}
 	}
 
-	// 3. Homebrew etc 目录 (macOS)
+	// 3. 本地开发路径 (./config/...)
+	localConfig := filepath.Join("config", "servers.json")
+	if _, err := os.Stat(localConfig); err == nil {
+		return localConfig
+	}
+
+	// 4. 系统全局配置 / Homebrew 备份 (最后手段)
 	if runtime.GOOS == "darwin" {
 		for _, prefix := range []string{"/opt/homebrew", "/usr/local"} {
 			brewConfig := filepath.Join(prefix, "etc/mcp-gateway", DefaultConfigFile)
@@ -112,12 +118,11 @@ func findConfigPath() string {
 				return brewConfig
 			}
 		}
-	}
-
-	// 4. ./config/servers.json (本地开发)
-	localConfig := filepath.Join("config", "servers.json")
-	if _, err := os.Stat(localConfig); err == nil {
-		return localConfig
+	} else if runtime.GOOS == "linux" {
+		linuxConfig := filepath.Join("/etc/mcp-gateway", DefaultConfigFile)
+		if _, err := os.Stat(linuxConfig); err == nil {
+			return linuxConfig
+		}
 	}
 
 	return ""

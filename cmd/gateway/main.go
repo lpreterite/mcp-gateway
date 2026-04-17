@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	version   = "1.2.0"
+	version   = "1.2.1"
 	buildTime = "unknown"
 )
 
@@ -60,6 +60,67 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
+			{
+				Name:  "config",
+				Usage: "Config management (info, init)",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "info",
+						Usage: "Show current config status and lookup paths",
+						Action: func(c *cli.Context) error {
+							fmt.Println("MCP Gateway Config Status:")
+							active := config.ConfigPathsHelp()
+							fmt.Println(active)
+							return nil
+						},
+					},
+					{
+						Name:  "init",
+						Usage: "Initialize user config (~/.config/mcp-gateway/config.json)",
+						Action: func(c *cli.Context) error {
+							homeDir, _ := os.UserHomeDir()
+							targetDir := filepath.Join(homeDir, ".config/mcp-gateway")
+							targetFile := filepath.Join(targetDir, "config.json")
+
+							if _, err := os.Stat(targetFile); err == nil {
+								fmt.Printf("Config already exists at %s\n", targetFile)
+								return nil
+							}
+
+							os.MkdirAll(targetDir, 0755)
+							defaultConfig := `{
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 4298,
+    "cors": true
+  },
+  "pool": {
+    "minConnections": 1,
+    "maxConnections": 5,
+    "acquireTimeout": 5000,
+    "idleTimeout": 30000
+  },
+  "servers": [
+    {
+      "name": "example",
+      "type": "local",
+      "command": ["echo", "hello"],
+      "enabled": true,
+      "poolSize": 1
+    }
+  ],
+  "mapping": {}
+}`
+							err := os.WriteFile(targetFile, []byte(defaultConfig), 0644)
+							if err != nil {
+								return err
+							}
+							fmt.Printf("✓ Config initialized at %s\n", targetFile)
+							return nil
+						},
+					},
+				},
+			},
 			{
 				Name:  "service",
 				Usage: "Service management (install, uninstall, start, stop, restart, status)",

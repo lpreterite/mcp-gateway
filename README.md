@@ -25,17 +25,24 @@ brew install lpreterite/tap/mcp-gateway
 
 ### 配置与启动
 
-Homebrew 安装后配置文件位于 `$(brew --prefix)/etc/mcp-gateway/config.json`
+`mcp-gateway` 遵循 Unix 惯例，优先从用户目录加载配置。
 
-1. **编辑配置文件添加你的 MCP 服务器：**
+1. **初始化用户配置 (推荐)**：
+   ```bash
+   mcp-gateway config init
+   ```
+   这将在 `~/.config/mcp-gateway/config.json` 创建一份默认配置。
 
-```bash
-# Homebrew 安装位置 (macOS ARM)
-vim /opt/homebrew/etc/mcp-gateway/config.json
+2. **查看当前生效的配置信息**：
+   ```bash
+   mcp-gateway config info
+   ```
 
-# 或 macOS Intel
-vim /usr/local/etc/mcp-gateway/config.json
-```
+3. **编辑配置文件添加你的 MCP 服务器**：
+   ```bash
+   vim ~/.config/mcp-gateway/config.json
+   ```
+
 
 配置示例：
 
