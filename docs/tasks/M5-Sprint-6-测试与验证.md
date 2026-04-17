@@ -169,3 +169,52 @@
 | utils | 0% | 80% | 80% |
 
 **结论**：80% 目标过高，按优先级分阶段目标是更务实的做法。registry 已达标，config 接近达标，gateway 需重点投入。
+
+---
+
+### 2026-04-20
+
+**各包测试覆盖率**：
+| 包 | 覆盖率 | 变化 |
+|----|--------|------|
+| github.com/lpreterite/mcp-gateway/cmd/gateway | 0.0% | — |
+| github.com/lpreterite/mcp-gateway/src/config | 78.0% | — |
+| github.com/lpreterite/mcp-gateway/src/gateway | **78.8%** | +39.5% |
+| github.com/lpreterite/mcp-gateway/src/gwservice | **54.6%** | +39.4% |
+| github.com/lpreterite/mcp-gateway/src/pool | **6.7%** | +4.6% |
+| github.com/lpreterite/mcp-gateway/src/registry | 97.9% | — |
+| github.com/lpreterite/mcp-gateway/src/stdio | 0.0% | — |
+| github.com/lpreterite/mcp-gateway/src/utils | 0.0% | — |
+| **整体** | **~35%** | +10% |
+
+**本次执行结果**：
+- ✅ **pool 包重构**：引入 ProcessStarter 接口，新增 starter.go，pool.go 从 93 行增加到 46 行 diff
+- ✅ **gateway 包**：覆盖率从 39.3% 提升到 78.8%（+39.5%）
+  - 新增 gateway_integration_test.go（774 行集成测试）
+  - 新增 server_test.go 和 types_test.go 补充测试
+  - 25 个测试全部通过
+- ✅ **gwservice 包**：覆盖率从 15.2% 提升到 54.6%（+39.4%）
+  - 新增 facade_test.go、manager_test.go、platform_test.go、coverage_test.go
+- ✅ **GitHub Workflow 更新**：`.github/workflows/ci.yml`
+  - 支持多操作系统测试矩阵：ubuntu、macOS、Windows
+  - Ubuntu 运行完整集成测试（覆盖 systemd）
+  - macOS/Windows 使用 -short 模式跳过 systemd 测试
+
+**提交记录**：
+- `87e3eec` refactor(pool): 引入 ProcessStarter 接口解耦进程创建
+- `713e6b1` test(gateway): 补充集成测试，覆盖率 66.7% → 78.8%
+
+**Sprint 6 完成度评估**：
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 单元测试覆盖 > 80% | ⚠️ 部分完成 | 整体 ~35%，registry 97.9%、gateway 78.8% |
+| 集成测试 | ✅ 完成 | GitHub Workflow 多系统支持 |
+| OpenCode MCP 验证 | ⏳ 待人工验证 | — |
+| broken pipe 问题 | ⏳ 待调查 | — |
+
+**剩余工作**：
+1. gwservice → 80%（差距 25.4%，需要 systemd 集成测试）
+2. pool → 更高覆盖率（可补充 mock 测试）
+3. stdio/utils → 补充基础测试
+4. broken pipe 问题根因调查
+5. OpenCode MCP 人工验证
