@@ -8,7 +8,7 @@ permission:
   bash:
     "*": ask
   webfetch: allow
-steps: 30
+steps: 50
 color: "#2ECC71"
 ---
 
