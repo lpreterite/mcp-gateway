@@ -159,3 +159,137 @@ func TestMapperGetOriginalToolName(t *testing.T) {
 		t.Errorf("Expected 'tool1', got '%s'", original)
 	}
 }
+
+func TestMapperGetServerForTool(t *testing.T) {
+	mapping := map[string]config.MappingConfig{
+		"server1": {
+			Prefix:      "srv1",
+			StripPrefix: true,
+		},
+		"server2": {
+			Prefix:      "srv2",
+			StripPrefix: true,
+		},
+	}
+
+	m := NewMapper(mapping, nil)
+
+	// 匹配带前缀的工具名
+	server := m.GetServerForTool("srv1_tool1")
+	if server != "server1" {
+		t.Errorf("Expected 'server1', got '%s'", server)
+	}
+
+	server = m.GetServerForTool("srv2_tool2")
+	if server != "server2" {
+		t.Errorf("Expected 'server2', got '%s'", server)
+	}
+
+	// 不带前缀的工具名不匹配
+	server = m.GetServerForTool("tool1")
+	if server != "" {
+		t.Errorf("Expected empty string for non-prefixed tool, got '%s'", server)
+	}
+
+	// 未知的工具名
+	server = m.GetServerForTool("unknown_tool")
+	if server != "" {
+		t.Errorf("Expected empty string for unknown tool, got '%s'", server)
+	}
+
+	// 大小写不敏感
+	server = m.GetServerForTool("SRV1_TOOL1")
+	if server != "server1" {
+		t.Errorf("Expected 'server1' (case insensitive), got '%s'", server)
+	}
+}
+
+func TestMapperGetAllPrefixes(t *testing.T) {
+	mapping := map[string]config.MappingConfig{
+		"server1": {
+			Prefix:      "srv1",
+			StripPrefix: true,
+		},
+		"server2": {
+			Prefix:      "srv2",
+			StripPrefix: true,
+		},
+	}
+
+	m := NewMapper(mapping, nil)
+
+	prefixes := m.GetAllPrefixes()
+	if len(prefixes) != 2 {
+		t.Errorf("Expected 2 prefixes, got %d", len(prefixes))
+	}
+
+	// 检查是否包含预期的前缀
+	found := make(map[string]bool)
+	for _, p := range prefixes {
+		found[p] = true
+	}
+	if !found["srv1"] {
+		t.Error("Expected 'srv1' in prefixes")
+	}
+	if !found["srv2"] {
+		t.Error("Expected 'srv2' in prefixes")
+	}
+}
+
+func TestMapperGetRuleForServer(t *testing.T) {
+	mapping := map[string]config.MappingConfig{
+		"server1": {
+			Prefix:      "srv1",
+			StripPrefix: true,
+			Rename: map[string]string{
+				"old": "new",
+			},
+		},
+	}
+
+	m := NewMapper(mapping, nil)
+
+	rule := m.GetRuleForServer("server1")
+	if rule.ServerName != "server1" {
+		t.Errorf("Expected ServerName 'server1', got '%s'", rule.ServerName)
+	}
+	if rule.Prefix != "srv1" {
+		t.Errorf("Expected Prefix 'srv1', got '%s'", rule.Prefix)
+	}
+	if !rule.StripPrefix {
+		t.Error("Expected StripPrefix to be true")
+	}
+	if rule.RenameMap["old"] != "new" {
+		t.Error("Expected RenameMap to contain 'old' -> 'new'")
+	}
+
+	// 不存在的服务器
+	rule = m.GetRuleForServer("non-existent")
+	if rule.ServerName != "" {
+		t.Errorf("Expected empty rule for non-existent server, got '%s'", rule.ServerName)
+	}
+}
+
+func TestMapperEmptyMapping(t *testing.T) {
+	m := NewMapper(nil, nil)
+
+	// 空映射应该正常工作
+	name := m.GetGatewayToolName("tool1", "server1")
+	if name != "tool1" {
+		t.Errorf("Expected 'tool1', got '%s'", name)
+	}
+
+	server := m.GetServerForTool("tool1")
+	if server != "" {
+		t.Errorf("Expected empty string, got '%s'", server)
+	}
+
+	prefixes := m.GetAllPrefixes()
+	if len(prefixes) != 0 {
+		t.Errorf("Expected 0 prefixes, got %d", len(prefixes))
+	}
+
+	if !m.ShouldIncludeTool("server1", "any-tool") {
+		t.Error("All tools should be included when no filters")
+	}
+}

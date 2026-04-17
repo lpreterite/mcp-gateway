@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -87,7 +86,9 @@ func main() {
 								return nil
 							}
 
-							os.MkdirAll(targetDir, 0755)
+							if err := os.MkdirAll(targetDir, 0755); err != nil {
+								return fmt.Errorf("failed to create config directory: %w", err)
+							}
 							defaultConfig := `{
   "gateway": {
     "host": "0.0.0.0",
@@ -136,77 +137,55 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							s, err := gwservice.NewManager(c.String("config"))
+							facade := gwservice.NewFacade(c.String("config"))
+							result, err := facade.Install()
 							if err != nil {
 								return err
 							}
-							return s.Install()
+							fmt.Printf("Service installed: %s\n", result.ServiceName)
+							if result.ConfigPath != "" {
+								fmt.Printf("Config path: %s\n", result.ConfigPath)
+							}
+							if result.InstallPath != "" {
+								fmt.Printf("Install path: %s\n", result.InstallPath)
+							}
+							return nil
 						},
 					},
 					{
 						Name:  "uninstall",
 						Usage: "Uninstall the system service",
 						Action: func(c *cli.Context) error {
-							s, err := gwservice.NewManager("")
-							if err != nil {
-								return err
-							}
-							return s.Uninstall()
+							return gwservice.NewFacade(c.String("config")).Uninstall()
 						},
 					},
 					{
 						Name:  "start",
 						Usage: "Start the system service",
 						Action: func(c *cli.Context) error {
-							s, err := gwservice.NewManager("")
-							if err != nil {
-								return err
-							}
-							return s.Start()
+							return gwservice.NewFacade(c.String("config")).Start()
 						},
 					},
 					{
 						Name:  "stop",
 						Usage: "Stop the system service",
 						Action: func(c *cli.Context) error {
-							s, err := gwservice.NewManager("")
-							if err != nil {
-								return err
-							}
-							return s.Stop()
+							return gwservice.NewFacade(c.String("config")).Stop()
 						},
 					},
 					{
 						Name:  "restart",
 						Usage: "Restart the system service",
 						Action: func(c *cli.Context) error {
-							s, err := gwservice.NewManager("")
-							if err != nil {
-								return err
-							}
-							return s.Restart()
+							return gwservice.NewFacade(c.String("config")).Restart()
 						},
 					},
 					{
 						Name:  "status",
 						Usage: "Check the system service status",
 						Action: func(c *cli.Context) error {
-							s, err := gwservice.NewManager("")
-							if err != nil {
-								return err
-							}
-							status, err := s.Status()
-							if err != nil {
-								return err
-							}
-							switch status {
-							case svc.StatusRunning:
-								fmt.Println("Service is running")
-							case svc.StatusStopped:
-								fmt.Println("Service is stopped")
-							default:
-								fmt.Println("Service status unknown")
-							}
+							report := gwservice.NewFacade(c.String("config")).Status()
+							fmt.Println(report.Format())
 							return nil
 						},
 					},
@@ -217,7 +196,11 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		if cmdErr, ok := err.(*gwservice.CommandError); ok {
+			os.Exit(int(cmdErr.Code))
+		}
+		os.Exit(int(gwservice.ExitServiceCommandFail))
 	}
 }
 
@@ -260,7 +243,9 @@ func run(c *cli.Context) error {
 	if !svc.Interactive() {
 		logDir := utils.GetDefaultLogDir()
 		logFile := filepath.Join(logDir, "mcp-gateway.log")
-		os.MkdirAll(logDir, 0755)
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			slog.Warn("Failed to create log directory", "error", err)
+		}
 		f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err == nil {
 			os.Stdout = f

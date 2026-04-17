@@ -14,11 +14,20 @@ env:
 jobs:
   test:
     name: Test (${{ matrix.os }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.21', '1.22']
+        include:
+          # Ubuntu 上运行完整集成测试（覆盖 Linux 特有代码如 systemd）
+          - os: ubuntu-latest
+            short_mode: false
+          # macOS/Windows 上跳过需要 systemd 的集成测试
+          - os: macos-latest
+            short_mode: true
+          - os: windows-latest
+            short_mode: true
       fail-fast: false
 
     steps:
@@ -45,7 +54,14 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -v -race ./...
+        run: |
+          if [ "${{ matrix.short_mode }}" = "true" ]; then
+            echo "Running unit tests (-short mode) on ${{ matrix.os }}"
+            go test -short -race ./...
+          else
+            echo "Running full integration tests on ${{ matrix.os }}"
+            go test -race ./...
+          fi
 
       - name: Run Go vet
         run: go vet ./...

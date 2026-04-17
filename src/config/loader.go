@@ -1,14 +1,13 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // DefaultConfigPath 默认配置路径
@@ -39,38 +38,59 @@ func DefaultGatewayConfig() *GatewayConfig {
 
 // Load 加载配置文件
 func Load(configPath string) (*Config, error) {
-	v := viper.New()
+	_, cfg, err := load(configPath, true)
+	return cfg, err
+}
 
-	// 设置配置路径
+// Inspect 检查配置文件并返回解析结果，不输出日志。
+func Inspect(configPath string) (string, *Config, error) {
+	return load(configPath, false)
+}
+
+// ResolveConfigPath 返回显式路径或自动探测到的配置路径。
+func ResolveConfigPath(configPath string) string {
 	if configPath != "" {
-		v.SetConfigFile(configPath)
-	} else {
-		// 自动查找配置
-		configPath = findConfigPath()
-		if configPath == "" {
-			return nil, fmt.Errorf("config file not found. Please create one of:\n" +
-				"  - ~/.config/mcp-gateway/config.json (global install)\n" +
-				"  - ./config/servers.json (local development)\n" +
-				"  - Or set MCP_GATEWAY_CONFIG environment variable")
-		}
-		v.SetConfigFile(configPath)
+		return configPath
+	}
+	return findConfigPath()
+}
+
+func load(configPath string, enableLog bool) (string, *Config, error) {
+	configPath = ResolveConfigPath(configPath)
+	if configPath == "" {
+		return "", nil, fmt.Errorf("config file not found. Please create one of:\n" +
+			"  - ~/.config/mcp-gateway/config.json (global install)\n" +
+			"  - ./config/servers.json (local development)\n" +
+			"  - Or set MCP_GATEWAY_CONFIG environment variable")
 	}
 
-	// 设置配置类型
-	v.SetConfigType("json")
+	if enableLog {
+		slog.Info("Loading config from", "path", configPath)
+	}
 
-	// 读取配置
-	slog.Info("Loading config from", "path", configPath)
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+	// 直接读取文件并使用 json.Unmarshal 以保持大小写
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return configPath, nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return configPath, nil, fmt.Errorf("failed to parse config JSON: %w", err)
 	}
 
-	// 应用默认值
+	if enableLog {
+		for _, s := range cfg.Servers {
+			if len(s.Env) > 0 {
+				keys := make([]string, 0, len(s.Env))
+				for k := range s.Env {
+					keys = append(keys, k)
+				}
+				slog.Info("Server env loaded (standard JSON)", "server", s.Name, "keys", keys)
+			}
+		}
+	}
+
 	if cfg.Pool == nil {
 		cfg.Pool = DefaultPoolConfig()
 	}
@@ -78,12 +98,11 @@ func Load(configPath string) (*Config, error) {
 		cfg.Gateway = DefaultGatewayConfig()
 	}
 
-	// 验证配置
 	if err := validateConfig(&cfg); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %w", err)
+		return configPath, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	return &cfg, nil
+	return configPath, &cfg, nil
 }
 
 // findConfigPath 自动查找配置文件路径，遵循 Unix 惯例优先级
@@ -111,14 +130,15 @@ func findConfigPath() string {
 	}
 
 	// 4. 系统全局配置 / Homebrew 备份 (最后手段)
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		for _, prefix := range []string{"/opt/homebrew", "/usr/local"} {
 			brewConfig := filepath.Join(prefix, "etc/mcp-gateway", DefaultConfigFile)
 			if _, err := os.Stat(brewConfig); err == nil {
 				return brewConfig
 			}
 		}
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		linuxConfig := filepath.Join("/etc/mcp-gateway", DefaultConfigFile)
 		if _, err := os.Stat(linuxConfig); err == nil {
 			return linuxConfig

@@ -140,6 +140,7 @@ func (t *SSETransport) Close() error {
 
 // JSONRPCToolRequest JSON-RPC 工具调用请求
 type JSONRPCToolRequest struct {
+	ID     interface{}     `json:"id,omitempty"`
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params,omitempty"`
 }
@@ -167,6 +168,7 @@ type JSONRPCError struct {
 // HealthResponse 健康检查响应
 type HealthResponse struct {
 	Status   string                    `json:"status"`
+	Ready    bool                      `json:"ready"`
 	Sessions int                       `json:"sessions"`
 	Pool     map[string]map[string]int `json:"pool"`
 }

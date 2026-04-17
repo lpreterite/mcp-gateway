@@ -1,5 +1,7 @@
 package registry
 
+import "sync"
+
 // ToolInfo 工具信息
 type ToolInfo struct {
 	Name         string                 `json:"name"`
@@ -13,6 +15,7 @@ type ToolInfo struct {
 // Registry 工具注册表
 type Registry struct {
 	tools map[string]ToolInfo
+	mu    sync.RWMutex
 }
 
 // NewRegistry 创建新的注册表
@@ -24,22 +27,30 @@ func NewRegistry() *Registry {
 
 // RegisterTool 注册工具
 func (r *Registry) RegisterTool(tool ToolInfo) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.tools[tool.Name] = tool
 }
 
 // UnregisterTool 注销工具
 func (r *Registry) UnregisterTool(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	delete(r.tools, name)
 }
 
 // GetTool 获取工具
 func (r *Registry) GetTool(name string) (ToolInfo, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	tool, ok := r.tools[name]
 	return tool, ok
 }
 
 // GetAllTools 获取所有工具
 func (r *Registry) GetAllTools() []ToolInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	tools := make([]ToolInfo, 0, len(r.tools))
 	for _, tool := range r.tools {
 		tools = append(tools, tool)
@@ -49,6 +60,8 @@ func (r *Registry) GetAllTools() []ToolInfo {
 
 // GetToolsByServer 获取指定服务器的工具
 func (r *Registry) GetToolsByServer(serverName string) []ToolInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	var tools []ToolInfo
 	for _, tool := range r.tools {
 		if tool.ServerName == serverName {
@@ -60,17 +73,23 @@ func (r *Registry) GetToolsByServer(serverName string) []ToolInfo {
 
 // HasTool 检查工具是否存在
 func (r *Registry) HasTool(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	_, ok := r.tools[name]
 	return ok
 }
 
 // Clear 清空注册表
 func (r *Registry) Clear() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.tools = make(map[string]ToolInfo)
 }
 
 // ClearByServer 清空指定服务器的工具
 func (r *Registry) ClearByServer(serverName string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for name, tool := range r.tools {
 		if tool.ServerName == serverName {
 			delete(r.tools, name)
@@ -80,5 +99,7 @@ func (r *Registry) ClearByServer(serverName string) {
 
 // Count 返回工具数量
 func (r *Registry) Count() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return len(r.tools)
 }

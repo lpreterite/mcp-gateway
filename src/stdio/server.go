@@ -201,10 +201,27 @@ func (s *Server) handleToolCall(method string, params interface{}) (interface{},
 	}
 
 	// 调用工具
+	slog.Info("Calling tool",
+		"tool", req.Name,
+		"originalName", originalName,
+		"server", serverName,
+	)
+
 	result, err := s.pool.CallTool(serverName, originalName, req.Arguments)
 	if err != nil {
+		slog.Error("Tool call failed",
+			"tool", req.Name,
+			"server", serverName,
+			"error", err,
+		)
 		return nil, err
 	}
+
+	slog.Info("Tool call succeeded",
+		"tool", req.Name,
+		"server", serverName,
+		"isError", result.IsError,
+	)
 
 	return result, nil
 }
