@@ -199,16 +199,55 @@ curl -s http://localhost:4298/tools | jq '.tools[].name'
 
 ---
 
+## 已知问题记录
+
+### Bug: opencode mcp list 显示 "Failed to get tools"
+
+**发现时间**：2026-04-18
+**严重程度**：P1
+
+**现象**：
+`opencode mcp list` 显示 gateway 状态为 `✗ failed`，错误信息为 `Failed to get tools`，但：
+- `opencode mcp debug gateway` 显示 `HTTP response: 200 OK`
+- 服务器直连 POST `/sse` 返回正常工具列表
+- Gateway 健康检查正常
+
+**根因分析**：
+- opencode 在拉取工具列表后对响应格式做了严格校验
+- `tools/list` 返回的每个工具对象中包含 `"annotations": null`
+- opencode 要求 `annotations` 必须是 `object` 类型，或字段直接省略
+- 当 `annotations` 为 `null` 时，opencode 校验失败：`Invalid input: expected object, received null`
+
+**修复方案**：
+- 在 `tools/list` 响应构造时，`annotations` 仅在非 `nil` 时才返回
+- `nil` 时省略该字段，避免 JSON 输出 `"annotations": null`
+
+**修复文件**：
+- `src/gateway/server.go` - `processJSONRPCRequest` 函数
+
+**验证命令**：
+```bash
+# 确认修复后状态
+opencode mcp list
+
+# 确认状态为 running/connected
+# 确认 debug 不再报错
+opencode mcp debug gateway
+```
+
+---
+
 ## 故障排查
 
 ### 排查矩阵
 
 | 现象 | 可能原因 | 检查方法 |
-|------|---------|---------|
+|------|---------|----------|
 | `✗ gateway failed` | 服务未启动 | `lsof -i :4298` |
 | `✗ gateway failed` | SSE 连接失败 | `curl -N http://localhost:4298/sse` |
 | `✗ gateway failed` | CORS 配置错误 | 检查 gateway 配置 |
 | `✗ gateway failed` | 服务未就绪 | 等待 10-30 秒后重试 |
+| `✗ gateway failed` | tools/list 响应格式错误 | 检查 annotations 字段是否为 null（2026-04-18 已修复） |
 
 ### 常见失败原因
 
@@ -304,6 +343,8 @@ curl -s http://localhost:4298/health | jq '.servers'
 |---------|---------|----------------------|-------------|------|
 | 2026-04-18 14:30 | `{"status":"ok","ready":true}` | `● ● gateway running` | v1.2.1 | 首次测试，正常 |
 | 2026-04-18 15:45 | `{"status":"ok","ready":true}` | `● ✗ gateway failed` | v1.2.1 | 端口被占用，重启后恢复 |
+| 2026-04-18 16:12 | `{"status":"ok","ready":true}` | `● ✗ gateway failed` | v1.0.0 | annotations:null 导致 opencode 校验失败（Bug1） |
+| 2026-04-18 晚 | `{"status":"ok","ready":true}` | `● ✓ gateway connected` | v1.0.0 | Bug1 已修复，annotations 为 nil 时省略字段 |
 
 ---
 

@@ -319,6 +319,64 @@ func TestProcessJSONRPCRequest_ToolsList(t *testing.T) {
 	if len(tools) != 2 {
 		t.Errorf("Expected 2 tools, got %d", len(tools))
 	}
+
+	if _, exists := tools[0]["annotations"]; exists {
+		t.Error("Expected nil annotations to be omitted from tool response")
+	}
+
+	if _, exists := tools[1]["annotations"]; exists {
+		t.Error("Expected nil annotations to be omitted from tool response")
+	}
+}
+
+func TestProcessJSONRPCRequest_ToolsListIncludesAnnotationsWhenPresent(t *testing.T) {
+	s := newReadyTestServer(t)
+
+	s.registry.RegisterTool(registry.ToolInfo{
+		Name:        "tool-with-annotations",
+		Description: "Tool with annotations",
+		ServerName:  "server1",
+		Annotations: map[string]interface{}{
+			"title":           "Annotated tool",
+			"readOnlyHint":    true,
+			"destructiveHint": false,
+		},
+	})
+
+	req := JSONRPCToolRequest{
+		ID:     1,
+		Method: "tools/list",
+		Params: json.RawMessage(`{}`),
+	}
+
+	resp := s.processJSONRPCRequest(req)
+
+	if resp.Error != nil {
+		t.Fatalf("Expected no error, got %v", resp.Error)
+	}
+
+	result, ok := resp.Result.(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected result to be map[string]interface{}")
+	}
+
+	tools, ok := result["tools"].([]map[string]interface{})
+	if !ok {
+		t.Fatal("Expected tools to be []map[string]interface{}")
+	}
+
+	if len(tools) != 1 {
+		t.Fatalf("Expected 1 tool, got %d", len(tools))
+	}
+
+	annotations, ok := tools[0]["annotations"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected annotations to be included as map[string]interface{}")
+	}
+
+	if annotations["title"] != "Annotated tool" {
+		t.Errorf("Expected annotations title 'Annotated tool', got %v", annotations["title"])
+	}
 }
 
 func TestProcessJSONRPCRequest_ToolsListNotReady(t *testing.T) {

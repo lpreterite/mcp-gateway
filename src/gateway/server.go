@@ -381,12 +381,15 @@ func (s *Server) processJSONRPCRequest(req JSONRPCToolRequest) JSONRPCResponse {
 		tools := s.registry.GetAllTools()
 		toolResponses := make([]map[string]interface{}, 0, len(tools))
 		for _, t := range tools {
-			toolResponses = append(toolResponses, map[string]interface{}{
+			toolResponse := map[string]interface{}{
 				"name":        t.Name,
 				"description": t.Description,
 				"inputSchema": t.InputSchema,
-				"annotations": t.Annotations,
-			})
+			}
+			if t.Annotations != nil {
+				toolResponse["annotations"] = t.Annotations
+			}
+			toolResponses = append(toolResponses, toolResponse)
 		}
 		resp.Result = map[string]interface{}{"tools": toolResponses}
 

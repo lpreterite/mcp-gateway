@@ -184,7 +184,21 @@ opencode mcp list
 | 问题 | 描述 | 状态 |
 |------|------|------|
 | playwright/lark broken pipe | npx 启动问题导致管道断开 | ⏳ 需要进一步调查 |
-| OpenCode MCP 工具调用验证 | 需要验证工具调用是否正常 | ⏳ 需要人工验证 |
+| ~~OpenCode MCP 工具调用验证~~ | ~~需要验证工具调用是否正常~~ | ✅ 已解决（2026-04-18） |
+
+### OpenCode MCP 问题解决记录
+
+**日期**：2026-04-18
+
+**问题**：`opencode mcp list` 显示 gateway 为 `failed` 状态，错误 `Failed to get tools`
+
+**根因**：`tools/list` 响应中 `annotations` 字段为 `null`，opencode 严格校验要求该字段必须是 object 或省略
+
+**修复**：修改 `src/gateway/server.go`，仅在 `annotations` 非 nil 时返回该字段
+
+**验证**：
+- `opencode mcp list` → `● ✓ gateway connected`
+- `opencode mcp debug gateway` → 正常
 
 ---
 
@@ -325,7 +339,7 @@ opencode mcp list
 |------|----------|------|
 | 1 | 本地 CLI 命令测试（`go test ./...`） | ⏳ 待验证 |
 | 2 | 本地服务 API 接口测试 | ⏳ 待验证 |
-| 3 | OpenCode MCP 集成测试（本地开发） | ⏳ 待验证 |
+| 3 | OpenCode MCP 集成测试（本地开发） | ✅ 通过 |
 | 4 | GitHub Workflow 测试 | ✅ 通过 |
 | 5 | Homebrew 安装后验证 | ⏳ 待验证 |
 
