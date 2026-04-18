@@ -2,7 +2,11 @@
 
 所有对项目的显著更改都将记录在此文件中。
 
-## [1.2.2] - 2026-04-18
+## [1.2.2] - 2026-04-21
+
+### 新增
+
+- **多平台 CI 测试**: GitHub Workflow 支持 Ubuntu、macOS、Windows 三平台测试
 
 ### 修复
 
@@ -12,6 +16,13 @@
   - 端口稳定性问题：修复 `Port: 0` 随机端口分配
   - Lint 问题：添加 nolint 注释、参数验证、权限修复
   - CI Workflow 问题：移除 Clean old cache 步骤解决权限问题
+  - Windows PowerShell 语法问题：修复 CI Windows Test job 的 bash 语法
+
+### 文档
+
+- **移除 Docker 相关文档**: 服务推荐使用系统服务直接运行
+- **更新 M5 Sprint 6 测试验证记录**: 添加 OpenCode MCP 集成测试和 lark MCP 凭证问题调查
+- **更新 M6 Sprint 7 发布准备状态**: 确认 CI/CD 配置完整
 
 ## [1.2.1] - 2026-04-17
 
