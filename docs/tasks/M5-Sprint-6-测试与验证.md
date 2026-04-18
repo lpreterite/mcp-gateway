@@ -351,3 +351,47 @@ opencode mcp list
 **CI 状态**：
 - GitHub Actions CI 检查全部通过（✓）
 - 多系统测试矩阵运行正常（Ubuntu、macOS、Windows）
+
+---
+
+### 2026-04-21（续）
+
+**本次执行**：修复 GitHub Workflow CI 多平台问题
+
+**修复的问题**：
+
+| # | 问题 | 根因 | 修复方案 |
+|---|------|------|----------|
+| 1 | Linux CI lint 失败 | `platform_darwin.go` 有 `//go:build darwin` 标签，Linux CI lint 时函数 undefined | 创建 `platform_shared.go`（无 build tag）存放 darwin 函数，内部检查 `runtime.GOOS` |
+| 2 | Windows 编译错误 | 缺少 `facade_windows.go` 和 `newFacadePlatformAdapter` | 创建 `facade_windows.go` |
+| 3 | Clean old cache 权限问题 | `rm -rf ~/.cache/go-build` 遇到 root 创建的文件权限拒绝 | 移除该 CI 步骤 |
+| 4 | TestGracefulShutdownChannel 超时 | 测试把阻塞式 `Server.Start()` 当成非阻塞接口使用，`Stop()` 永远执行不到 | 改为 goroutine 启动 `Start()` 并等待返回 |
+| 5 | Windows PowerShell 语法问题 | CI Windows Test 使用 bash 语法 | 改为 PowerShell 兼容语法 |
+| 6 | unused 函数 lint 警告 | `normalizeLaunchctlError` 和 `isLaunchctlNotFound` 在 Linux CI 上报 unused | 添加 `//nolint:unused` 注释 |
+
+**提交记录**：
+- `8171f2f` fix: 为 facade_windows.go 添加 newFacadePlatformAdapter
+- `edbfab9` fix: 修复测试超时和 Windows 编译问题
+- `0daf54b` fix: remove 'Clean old cache' step that fails due to permission denied
+- `68218a9` fix(gwservice): 添加 nolint:unused 注释修复 Linux CI lint
+- `b985ebd` fix(ci): 将 Windows Test job 的 bash 语法改为 PowerShell 语法
+- `406d32e` fix(gwservice): 重构 platform 代码修复 Linux CI lint
+
+**验收标准状态更新**：
+| 编号 | 验收标准 | 状态 |
+|------|----------|------|
+| 1 | 本地 CLI 命令测试（`go test ./...`） | ✅ 通过 |
+| 2 | 本地服务 API 接口测试 | ⏳ 待验证 |
+| 3 | OpenCode MCP 集成测试（本地开发） | ✅ 通过 |
+| 4 | GitHub Workflow 测试 | ✅ 通过 |
+| 5 | Homebrew 安装后验证 | ⏳ 待验证 |
+
+**CI 最终状态**：
+- ✅ Ubuntu CI: 通过（4m1s）
+- ✅ macOS CI: 通过
+- ✅ Windows CI: 通过
+
+**重要经验**：
+- **本地 vs CI 差异**：本地是 macOS，CI Lint 在 Ubuntu 上运行，build tag 导致代码可见性不同
+- **Go typecheck 是编译时检查**：`runtime.GOOS == "darwin"` 分支在 Linux 上虽不执行，但函数定义必须存在
+- **测试超时主因**：不是 Data Race，而是 `handleGracefulShutdown` 等信号但 `Stop()` 不发信号
