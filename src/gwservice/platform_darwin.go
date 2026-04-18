@@ -1,3 +1,5 @@
+//go:build darwin
+
 package gwservice
 
 import (
@@ -100,20 +102,4 @@ func (a *darwinAdapter) kickstart(kill bool) error {
 		return &CommandError{Code: ExitRegistrationError, Message: normalizeLaunchctlError(output, err)}
 	}
 	return nil
-}
-
-func normalizeLaunchctlError(output []byte, err error) string {
-	text := strings.TrimSpace(string(output))
-	if text == "" {
-		text = err.Error()
-	}
-	return text
-}
-
-func isLaunchctlMissing(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "Could not find service") || strings.Contains(msg, "No such process")
 }

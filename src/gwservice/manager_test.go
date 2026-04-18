@@ -41,7 +41,7 @@ func TestGetConfig(t *testing.T) {
 	if cfg.Executable == "" {
 		t.Error("expected non-empty Executable path")
 	}
-	if cfg.Arguments == nil || len(cfg.Arguments) == 0 {
+	if len(cfg.Arguments) == 0 {
 		t.Error("expected non-empty Arguments")
 	}
 	if cfg.Arguments[0] != "--config" {
@@ -89,14 +89,12 @@ func TestNewControlManager(t *testing.T) {
 
 // 验证 CommandError 实现了 error 接口
 func TestCommandErrorImplementsError(t *testing.T) {
-	var err error = &CommandError{
+	cmdErr := &CommandError{
 		Code:    ExitConfigError,
 		Message: "test",
 	}
 
-	if err == nil {
-		t.Error("expected non-nil error")
-	}
+	var err error = cmdErr
 	if err.Error() != "test" {
 		t.Errorf("expected error message 'test', got '%s'", err.Error())
 	}
@@ -196,13 +194,10 @@ func TestInstallResultFields(t *testing.T) {
 func TestErrorsAsCommandError(t *testing.T) {
 	originalErr := &CommandError{Code: ExitConfigError, Message: "config is invalid"}
 
-	// 创建包装错误
 	wrappedErr := errors.New(originalErr.Error())
 
-	// 验证 errors.As 能工作
 	var cmdErr *CommandError
 	if errors.As(wrappedErr, &cmdErr) {
-		// wrappedErr 是简单 error，没有 Code 字段
-		// 这个测试主要验证类型转换不会 panic
+		t.Error("expected errors.As to return false for wrapped error")
 	}
 }

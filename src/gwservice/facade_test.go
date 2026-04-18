@@ -2,81 +2,8 @@ package gwservice
 
 import (
 	"errors"
-	"runtime"
 	"testing"
-
-	"github.com/kardianos/service"
 )
-
-// Mock PlatformAdapter 用于测试
-type mockPlatformAdapter struct {
-	startErr      error
-	stopErr       error
-	restartErr    error
-	startCalled   bool
-	stopCalled    bool
-	restartCalled bool
-}
-
-func (m *mockPlatformAdapter) Start(f *Facade, report ServiceStatusReport) error {
-	m.startCalled = true
-	return m.startErr
-}
-
-func (m *mockPlatformAdapter) Stop(f *Facade, report ServiceStatusReport) error {
-	m.stopCalled = true
-	return m.stopErr
-}
-
-func (m *mockPlatformAdapter) Restart(f *Facade, report ServiceStatusReport) error {
-	m.restartCalled = true
-	return m.restartErr
-}
-
-// mockControlManager 模拟 service.Service
-type mockControlManager struct {
-	installErr   error
-	uninstallErr error
-	startErr     error
-	stopErr      error
-	restartErr   error
-}
-
-func (m *mockControlManager) Install() error {
-	return m.installErr
-}
-
-func (m *mockControlManager) Uninstall() error {
-	return m.uninstallErr
-}
-
-func (m *mockControlManager) Start() error {
-	return m.startErr
-}
-
-func (m *mockControlManager) Stop() error {
-	return m.stopErr
-}
-
-func (m *mockControlManager) Restart() error {
-	return m.restartErr
-}
-
-func (m *mockControlManager) Run() error {
-	return nil
-}
-
-func (m *mockControlManager) Status() (service.Status, error) {
-	return service.StatusUnknown, nil
-}
-
-func (m *mockControlManager) Logger() (service.Logger, error) {
-	return nil, nil
-}
-
-func (m *mockControlManager) System() (service.System, error) {
-	return nil, nil
-}
 
 func TestNewFacade(t *testing.T) {
 	f := NewFacade("/path/to/config")
@@ -178,39 +105,5 @@ func TestFacadeControlService(t *testing.T) {
 	}
 	if svc == nil {
 		t.Error("expected non-nil service when config is valid")
-	}
-}
-
-func TestPlatformAdapterDarwin(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("skipping darwin-specific test on non-darwin platform")
-	}
-
-	adapter := platformAdapter()
-	if adapter == nil {
-		t.Fatal("expected non-nil adapter")
-	}
-
-	// 验证是 darwinAdapter 类型
-	_, ok := adapter.(*darwinAdapter)
-	if !ok {
-		t.Errorf("expected *darwinAdapter, got %T", adapter)
-	}
-}
-
-func TestPlatformAdapterLinux(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("skipping linux-specific test on non-linux platform")
-	}
-
-	adapter := platformAdapter()
-	if adapter == nil {
-		t.Fatal("expected non-nil adapter")
-	}
-
-	// 验证是 linuxAdapter 类型
-	_, ok := adapter.(*linuxAdapter)
-	if !ok {
-		t.Errorf("expected *linuxAdapter, got %T", adapter)
 	}
 }

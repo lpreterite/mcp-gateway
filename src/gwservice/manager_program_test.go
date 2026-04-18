@@ -23,8 +23,6 @@ func TestProgramStruct(t *testing.T) {
 }
 
 func TestProgramStartReturnsImmediately(t *testing.T) {
-	// program.Start 应该立即返回（不阻塞）
-	// 因为它使用 go run() 在后台运行
 	p := &program{}
 	var s mockService
 	err := p.Start(s)
@@ -98,12 +96,12 @@ func TestSuggestedRegistrationFixOnLinux(t *testing.T) {
 	}
 
 	// 验证消息包含平台特定内容
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		if !containsString(action.Message, "launchctl") && !containsString(action.Message, "launchctl bootstrap") {
-			// 消息可能包含 launchctl 或 systemctl
 			t.Logf("darwin message: %s", action.Message)
 		}
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		if !containsString(action.Message, "systemctl") && !containsString(action.Message, "daemon-reload") {
 			t.Logf("linux message: %s", action.Message)
 		}

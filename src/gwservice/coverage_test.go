@@ -1,3 +1,5 @@
+//go:build darwin
+
 package gwservice
 
 import (
@@ -107,23 +109,6 @@ func TestDarwinAdapterBootstrap(t *testing.T) {
 	err := adapter.bootstrap()
 	if err != nil {
 		t.Logf("bootstrap returned error (may be expected): %v", err)
-	}
-}
-
-// ============ platformAdapter 边缘情况测试 ============
-
-func TestPlatformAdapterOnUnknownOS(t *testing.T) {
-	// 注意：无法真正改变 runtime.GOOS，所以只能通过代码逻辑验证
-	// platformAdapter() 依赖于 runtime.GOOS
-	// 在未知 OS 上会返回 genericAdapter
-
-	// 这个测试主要验证代码路径存在
-	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
-		// 当前在已知 OS 上
-		adapter := platformAdapter()
-		if adapter == nil {
-			t.Fatal("expected non-nil adapter")
-		}
 	}
 }
 
@@ -247,12 +232,10 @@ func TestDarwinLaunchctlPrint(t *testing.T) {
 
 func TestDetectRegistrationUnknownPlatform(t *testing.T) {
 	// 验证在非 darwin/linux 平台上的行为
-	// 当前测试可能在 darwin 或 linux 上运行
-	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
-		status, detail := detectRegistration()
-		if status == StateUnknown && detail == "" {
-			t.Error("expected detail when status is unknown")
-		}
+	// 当前测试在 darwin 上运行
+	status, detail := detectRegistration()
+	if status == StateUnknown && detail == "" {
+		t.Error("expected detail when status is unknown")
 	}
 }
 

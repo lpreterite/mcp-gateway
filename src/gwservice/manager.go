@@ -24,6 +24,11 @@ func (p *program) Start(s service.Service) error {
 }
 
 func (p *program) run() {
+	if p.cfg == nil {
+		slog.Error("Cannot start gateway server: configuration is nil")
+		return
+	}
+
 	// 强制尝试创建日志文件，无论是否交互式
 	logDir := utils.GetDefaultLogDir()
 	logFile := filepath.Join(logDir, "mcp-gateway.log")

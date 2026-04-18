@@ -2,7 +2,6 @@ package gwservice
 
 import (
 	"fmt"
-	"runtime"
 
 	"github.com/kardianos/service"
 	"github.com/lpreterite/mcp-gateway/src/config"
@@ -22,7 +21,7 @@ type Facade struct {
 func NewFacade(configPath string) *Facade {
 	return &Facade{
 		configPath: configPath,
-		adapter:    platformAdapter(),
+		adapter:    newFacadePlatformAdapter(),
 	}
 }
 
@@ -87,14 +86,4 @@ func (f *Facade) Status() ServiceStatusReport {
 
 func (f *Facade) controlService() (service.Service, error) {
 	return NewControlManager(f.configPath)
-}
-
-func platformAdapter() PlatformAdapter {
-	if runtime.GOOS == "darwin" {
-		return &darwinAdapter{}
-	}
-	if runtime.GOOS == "linux" {
-		return &linuxAdapter{}
-	}
-	return &genericAdapter{}
 }

@@ -34,3 +34,19 @@ func darwinLaunchctlPrint() (string, []byte, error) {
 	output, runErr := cmd.CombinedOutput()
 	return target, output, runErr
 }
+
+func normalizeLaunchctlError(output []byte, err error) string {
+	text := strings.TrimSpace(string(output))
+	if text == "" {
+		text = err.Error()
+	}
+	return text
+}
+
+func isLaunchctlMissing(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "Could not find service") || strings.Contains(msg, "No such process")
+}
