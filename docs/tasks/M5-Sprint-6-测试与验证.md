@@ -381,10 +381,19 @@ opencode mcp list
 | 编号 | 验收标准 | 状态 |
 |------|----------|------|
 | 1 | 本地 CLI 命令测试（`go test ./...`） | ✅ 通过 |
-| 2 | 本地服务 API 接口测试 | ⏳ 待验证 |
+| 2 | 本地服务 API 接口测试 | ✅ 通过 |
 | 3 | OpenCode MCP 集成测试（本地开发） | ✅ 通过 |
 | 4 | GitHub Workflow 测试 | ✅ 通过 |
 | 5 | Homebrew 安装后验证 | ⏳ 待验证 |
+
+**API 测试详情**（2026-04-21 执行）：
+- 服务正常启动，监听端口 4298
+- `/health` → 200，返回 `{"status":"ok","ready":true,"sessions":0}`
+- `/tools` → 200，返回 48 个工具
+- `/sse` → 200，建立 SSE 连接
+- `/messages` → 400/404（需要有效 sessionId）
+- `/tools/call` → 200，接受请求
+- 45+ 单元测试全部通过
 
 **CI 最终状态**：
 - ✅ Ubuntu CI: 通过（4m1s）
