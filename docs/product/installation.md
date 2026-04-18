@@ -299,19 +299,6 @@ sudo rm /usr/local/bin/mcp-gateway
 rm -rf ~/.config/mcp-gateway
 ```
 
-### Docker 卸载
-
-```bash
-# 停止并删除容器
-docker-compose down
-
-# 删除镜像
-docker rmi mcp-gateway:latest
-
-# 删除配置文件（可选）
-rm -rf ~/mcp-gateway
-```
-
 ---
 
 ## 常见问题
