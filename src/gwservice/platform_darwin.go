@@ -14,11 +14,11 @@ func (a *darwinAdapter) Start(_ *Facade, report ServiceStatusReport) error {
 	if report.InstallStatus != StatePresent {
 		return &CommandError{Code: ExitInstallMissing, Message: fmt.Sprintf("cannot start service: service definition not installed (%s)", report.InstallDetail)}
 	}
-	if report.ProcessStatus == StateRunning {
-		return nil
-	}
 	if report.RegistrationStatus == StateMissing {
 		return a.bootstrap()
+	}
+	if report.ProcessStatus == StateRunning {
+		return nil
 	}
 	if report.RegistrationStatus == StateLoaded {
 		if err := a.kickstart(false); err != nil {
