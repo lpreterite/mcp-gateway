@@ -183,7 +183,7 @@ jobs:
 
               # 生成示例配置文件
               (etc/"mcp-gateway").mkpath
-              (etc/"mcp-gateway/config.json").write <<~JSON
+              (etc/"mcp-gateway/config.json").write <<~JSON, backup: true
                 {
                   "gateway": {
                     "host": "0.0.0.0",
