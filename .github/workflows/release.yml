@@ -181,33 +181,36 @@ jobs:
                 end
               end
 
-              # 生成示例配置文件
-              (etc/"mcp-gateway").mkpath
-              (etc/"mcp-gateway/config.json").write <<~JSON, backup: true
-                {
-                  "gateway": {
-                    "host": "0.0.0.0",
-                    "port": 4298,
-                    "cors": true
-                  },
-                  "pool": {
-                    "minConnections": 1,
-                    "maxConnections": 5,
-                    "acquireTimeout": 5000,
-                    "idleTimeout": 30000
-                  },
-                  "servers": [
-                    {
-                      "name": "example",
-                      "type": "local",
-                      "command": ["echo", "hello"],
-                      "enabled": true,
-                      "poolSize": 1
-                    }
-                  ],
-                  "mapping": {}
-                }
-              JSON
+              # 生成示例配置文件（仅当配置文件不存在时写入）
+              config_file = etc/"mcp-gateway/config.json"
+              unless config_file.exist?
+                (etc/"mcp-gateway").mkpath
+                config_file.write <<~JSON
+                  {
+                    "gateway": {
+                      "host": "0.0.0.0",
+                      "port": 4298,
+                      "cors": true
+                    },
+                    "pool": {
+                      "minConnections": 1,
+                      "maxConnections": 5,
+                      "acquireTimeout": 5000,
+                      "idleTimeout": 30000
+                    },
+                    "servers": [
+                      {
+                        "name": "example",
+                        "type": "local",
+                        "command": ["echo", "hello"],
+                        "enabled": true,
+                        "poolSize": 1
+                      }
+                    ],
+                    "mapping": {}
+                  }
+                JSON
+              end
             end
 
             def post_install
