@@ -2,6 +2,17 @@
 
 所有对项目的显著更改都将记录在此文件中。
 
+## [1.2.2] - 2026-04-18
+
+### 修复
+
+- **CI 问题修复**: 解决了多系统 CI 测试中的各种问题
+  - 测试超时问题：修复 `TestGracefulShutdownChannel` 和 `TestServerMultipleStartStops` 超时
+  - Windows 编译问题：添加 `facade_windows.go` 及 `newFacadePlatformAdapter` 函数
+  - 端口稳定性问题：修复 `Port: 0` 随机端口分配
+  - Lint 问题：添加 nolint 注释、参数验证、权限修复
+  - CI Workflow 问题：移除 Clean old cache 步骤解决权限问题
+
 ## [1.2.1] - 2026-04-17
 
 ### 新增
