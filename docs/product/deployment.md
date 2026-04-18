@@ -4,6 +4,342 @@
 
 ---
 
+## 部署流程概览
+
+### 从 GitHub 到 Homebrew 安装
+
+项目使用 GitHub Actions 实现自动化构建和发布，用户通过 Homebrew 一键安装。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Dev as 🧑‍💻 开发者
+    participant GH as 🐙 GitHub
+    participant WF as ⚙️ Release Workflow
+    participant Rel as 📦 GitHub Releases
+    participant Tap as 🍺 Homebrew Tap
+    participant Brew as 🍺 brew CLI
+    participant User as 👤 用户
+
+    Dev->>GH: git tag v1.0.0 && git push
+    GH->>WF: 触发 Release Pipeline
+
+    Note over WF: 跨平台编译<br/>(5 个平台)
+
+    WF->>Rel: 上传构建产物<br/>(linux-amd64/arm64,<br/>darwin-amd64/arm64,<br/>windows-amd64)
+    Rel-->>WF: 生成下载 URL + SHA256
+    WF->>Tap: 更新 Formula<br/>(版本号 + URL + SHA256)
+    Tap->>Tap: 提交到<br/>homebrew-tap 仓库
+
+    User->>Brew: brew install<br/>lpreterite/tap/mcp-gateway
+    Brew->>Tap: 获取 Formula
+    Tap-->>Brew: 返回安装脚本
+    Brew->>Rel: 下载对应平台二进制
+    Rel-->>Brew: 返回二进制文件
+    Brew->>Brew: SHA256 校验
+    Brew->>User: 安装到<br/>/opt/homebrew/bin/
+
+    Note over User: 安装完成！<br/>brew upgrade 可升级
+```
+
+### 四色建模说明
+
+| 颜色 | 类型 | 说明 |
+|------|------|------|
+| 🟥 边界对象 | Boundary | 与用户/外部系统交互的接口 |
+| 🟦 控制对象 | Control | 协调和执行流程的对象 |
+| 🟨 实体对象 | Entity | 持久化的数据和业务实体 |
+| 🟩 消息 | Message | 对象间的通信和调用 |
+
+### 快速开始
+
+**发布新版本**：
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+**用户安装**：
+
+```bash
+brew install lpreterite/tap/mcp-gateway
+```
+
+---
+
+## 部署场景
+
+### 场景一：本地开发
+
+适用于在本地机器上进行 MCP Gateway 开发或测试。
+
+```bash
+# 1. 初始化配置
+mcp-gateway config init
+
+# 2. 编辑配置
+vim ~/.config/mcp-gateway/config.json
+
+# 3. 直接运行（实时查看日志）
+mcp-gateway --log-level debug
+
+# 4. 新开终端验证
+curl http://localhost:4298/health
+```
+
+**配置文件示例**（本地开发）：
+
+```json
+{
+  "gateway": {
+    "host": "127.0.0.1",
+    "port": 4298,
+    "cors": true
+  },
+  "pool": {
+    "minConnections": 1,
+    "maxConnections": 3
+  },
+  "servers": [
+    {
+      "name": "minimax",
+      "type": "local",
+      "command": ["uvx", "minimax-coding-plan-mcp"],
+      "enabled": true,
+      "poolSize": 2
+    }
+  ]
+}
+```
+
+---
+
+### 场景二：Homebrew 安装（macOS/Linux）
+
+通过 Homebrew 包管理器安装 mcp-gateway。
+
+#### 安装步骤
+
+```bash
+# 1. 添加 Homebrew Tap
+brew tap lpreterite/tap
+
+# 2. 安装 mcp-gateway
+brew install mcp-gateway
+
+# 3. 验证安装
+mcp-gateway --version
+
+# 4. 编辑配置文件
+vim /opt/homebrew/etc/mcp-gateway/config.json
+```
+
+#### 安装后结构
+
+```
+/opt/homebrew/
+├── bin/
+│   └── mcp-gateway           # 可执行文件
+└── etc/
+    └── mcp-gateway/
+        └── config.json       # 配置文件
+```
+
+#### 服务管理
+
+```bash
+# 安装系统服务
+mcp-gateway service install --config /opt/homebrew/etc/mcp-gateway/config.json
+
+# 启动服务
+mcp-gateway service start
+
+# 检查状态
+mcp-gateway service status
+
+# 查看日志
+mcp-gateway --log-level debug
+```
+
+#### 升级
+
+```bash
+# 更新 Homebrew
+brew update
+
+# 升级 mcp-gateway
+brew upgrade mcp-gateway
+```
+
+#### 卸载
+
+```bash
+brew uninstall mcp-gateway
+brew untap lpreterite/tap
+```
+
+---
+
+## 本地开发与测试
+
+### 开发环境准备
+
+**前置条件**：
+
+- Go 1.21+
+- Git
+- Homebrew（macOS）或系统包管理器（Linux）
+
+**克隆代码**：
+
+```bash
+git clone https://github.com/lpreterite/mcp-gateway.git
+cd mcp-gateway
+```
+
+**安装依赖**：
+
+```bash
+go mod download
+```
+
+### 代码结构
+
+```
+mcp-gateway/
+├── cmd/
+│   └── gateway/              # 主程序入口
+├── src/
+│   └── gwservice/            # 核心服务包
+│       ├── facade.go         # 门面接口
+│       ├── facade_darwin.go  # macOS 平台适配
+│       ├── facade_linux.go   # Linux 平台适配
+│       ├── manager.go        # 服务管理器
+│       ├── platform_*.go     # 平台特定实现
+│       └── *_test.go         # 测试文件
+├── config/
+│   └── servers.json          # 示例配置
+└── docs/
+    └── product/
+        └── deployment.md     # 本文档
+```
+
+### 运行测试
+
+```bash
+# 运行所有测试
+go test -race ./...
+
+# 运行单元测试（跳过集成测试）
+go test -short -race ./...
+
+# 运行特定包的测试
+go test -race ./src/gwservice/...
+
+# 查看测试覆盖率
+go test -cover ./...
+
+# 生成覆盖率报告
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+```
+
+### 本地运行服务
+
+**方式一：直接运行**：
+
+```bash
+# 使用默认配置
+go run ./cmd/gateway
+
+# 指定配置文件
+go run ./cmd/gateway --config ./config/servers.json
+
+# 开启调试日志
+go run ./cmd/gateway --log-level debug
+```
+
+**方式二：构建后运行**：
+
+```bash
+# 构建二进制
+go build -o mcp-gateway ./cmd/gateway
+
+# 运行
+./mcp-gateway --config ./config/servers.json
+```
+
+### 调试服务
+
+**查看服务状态**：
+
+```bash
+# 初始化配置（如需要）
+./mcp-gateway config init
+
+# 检查配置
+./mcp-gateway config info
+
+# 查看服务状态
+./mcp-gateway service status
+```
+
+**健康检查**：
+
+```bash
+# 检查服务健康状态
+curl http://localhost:4298/health
+
+# 查看响应示例
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "servers": {
+    "minimax": "running"
+  },
+  "pool": {
+    "total": 2,
+    "idle": 2
+  }
+}
+```
+
+**实时日志**：
+
+```bash
+# 终端 1：启动服务
+./mcp-gateway --log-level debug
+
+# 终端 2：发送请求
+curl http://localhost:4298/health
+```
+
+### 与 OpenCode 集成测试
+
+详见 [OpenCode MCP 集成测试](./opencode-mcp-test.md)。
+
+### CI 本地模拟
+
+在本地运行 CI 测试脚本：
+
+```bash
+# 运行 golangci-lint（如已安装）
+golangci-lint run --timeout=5m
+
+# 或安装后运行
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+golangci-lint run --timeout=5m ./...
+
+# 运行 Go vet
+go vet ./...
+
+# 安全扫描
+go install github.com/securego/gosec/v2/cmd/gosec@latest
+gosec ./...
+```
+
+---
+
 ## 配置文件格式
 
 ### 配置文件结构
@@ -200,262 +536,50 @@ MCP Gateway 按以下顺序查找配置文件：
 
 ---
 
-## 部署场景
+## GitHub Actions 发布流程
 
-### 场景一：本地开发
+### 完整流程
 
-适用于在本地机器上进行 MCP Gateway 开发或测试。
+1. **开发者** 打 tag 并 push 到 GitHub
+2. **GitHub Actions** 自动触发 Release Workflow
+3. Workflow 执行：
+   - 运行测试
+   - 跨平台编译（5 个平台）
+   - 创建 GitHub Release
+   - 上传构建产物
+4. **Homebrew Tap** 仓库自动更新 Formula
+5. 用户通过 **brew install** 安装
 
-```bash
-# 1. 初始化配置
-mcp-gateway config init
-
-# 2. 编辑配置
-vim ~/.config/mcp-gateway/config.json
-
-# 3. 直接运行（实时查看日志）
-mcp-gateway --log-level debug
-
-# 4. 新开终端验证
-curl http://localhost:4298/health
-```
-
-**配置文件示例**（本地开发）：
-
-```json
-{
-  "gateway": {
-    "host": "127.0.0.1",
-    "port": 4298,
-    "cors": true
-  },
-  "pool": {
-    "minConnections": 1,
-    "maxConnections": 3
-  },
-  "servers": [
-    {
-      "name": "minimax",
-      "type": "local",
-      "command": ["uvx", "minimax-coding-plan-mcp"],
-      "enabled": true,
-      "poolSize": 2
-    }
-  ]
-}
-```
-
----
-
-### 场景二：单服务器部署
-
-适用于在服务器上长期运行 MCP Gateway 服务。
-
-#### 使用 systemd（Linux）
+### 触发发布
 
 ```bash
-# 1. 创建 systemd 服务文件
-sudo tee /etc/systemd/system/mcp-gateway.service << 'EOF'
-[Unit]
-Description=MCP Gateway Service
-After=network.target
-
-[Service]
-Type=simple
-User=your-user
-WorkingDirectory=/home/your-user
-ExecStart=/usr/local/bin/mcp-gateway --config /etc/mcp-gateway/config.json
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# 2. 创建配置目录
-sudo mkdir -p /etc/mcp-gateway
-
-# 3. 复制并编辑配置
-sudo cp /path/to/config.json /etc/mcp-gateway/config.json
-sudo vim /etc/mcp-gateway/config.json
-
-# 4. 重载 systemd 并启动服务
-sudo systemctl daemon-reload
-sudo systemctl enable mcp-gateway
-sudo systemctl start mcp-gateway
-
-# 5. 检查状态
-sudo systemctl status mcp-gateway
+# 打 tag 触发（推荐）
+git checkout main
+git pull origin main
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-#### 使用 launchd（macOS）
+### 构建产物
 
-```bash
-# 1. 创建 LaunchAgent 目录
-mkdir -p ~/Library/LaunchAgents
+| OS | Arch | 文件名 |
+|----|------|--------|
+| Linux | amd64 | mcp-gateway-linux-amd64 |
+| Linux | arm64 | mcp-gateway-linux-arm64 |
+| macOS | amd64 | mcp-gateway-darwin-amd64 |
+| macOS | arm64 | mcp-gateway-darwin-arm64 |
+| Windows | amd64 | mcp-gateway-windows-amd64.exe |
 
-# 2. 创建服务文件
-tee ~/Library/LaunchAgents/com.mcp-gateway.plist << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.mcp-gateway</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/mcp-gateway</string>
-        <string>--config</string>
-        <string>/usr/local/etc/mcp-gateway/config.json</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/tmp/mcp-gateway.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/mcp-gateway.log</string>
-</dict>
-</plist>
-EOF
+### Homebrew Formula 说明
 
-# 3. 加载服务
-launchctl load ~/Library/LaunchAgents/com.mcp-gateway.plist
+Tap 仓库地址：[github.com/lpreterite/homebrew-tap](https://github.com/lpreterite/homebrew-tap)
 
-# 4. 检查状态
-launchctl list | grep mcp-gateway
-```
+Formula 是 Ruby 脚本，告诉 Homebrew：
+- 从哪里下载二进制文件
+- 如何安装到系统
+- 如何生成默认配置
 
-#### 使用内置服务管理命令
-
-```bash
-# 安装服务
-mcp-gateway service install --config /path/to/config.json
-
-# 启动/停止/重启
-mcp-gateway service start
-mcp-gateway service stop
-mcp-gateway service restart
-
-# 查看状态
-mcp-gateway service status
-```
-
----
-
-### 场景三：Docker 部署
-
-适用于需要快速部署或隔离运行的环境。
-
-#### docker-compose 部署（推荐）
-
-```bash
-# 1. 创建项目目录
-mkdir -p ~/mcp-gateway
-cd ~/mcp-gateway
-
-# 2. 创建配置目录
-mkdir -p config
-
-# 3. 创建配置文件
-cat > config/servers.json << 'EOF'
-{
-  "gateway": {
-    "host": "0.0.0.0",
-    "port": 4298,
-    "cors": true
-  },
-  "pool": {
-    "minConnections": 1,
-    "maxConnections": 5,
-    "acquireTimeout": 10000,
-    "idleTimeout": 60000
-  },
-  "servers": [
-    {
-      "name": "minimax",
-      "type": "local",
-      "command": ["uvx", "minimax-coding-plan-mcp"],
-      "enabled": true,
-      "poolSize": 3
-    }
-  ]
-}
-EOF
-
-# 4. 创建 docker-compose.yml
-cat > docker-compose.yml << 'EOF'
-services:
-  mcp-gateway:
-    build: .
-    container_name: mcp-gateway
-    ports:
-      - "4298:4298"
-    volumes:
-      - ./config/servers.json:/app/config.json:ro
-    environment:
-      - TZ=Asia/Shanghai
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:4298/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-EOF
-
-# 5. 启动服务
-docker-compose up -d
-
-# 6. 查看状态
-docker-compose ps
-
-# 7. 查看日志
-docker-compose logs -f
-
-# 8. 停止服务
-docker-compose down
-```
-
-#### Docker 手动部署
-
-```bash
-# 1. 构建镜像
-docker build -t mcp-gateway:latest .
-
-# 2. 运行容器
-docker run -d \
-  --name mcp-gateway \
-  -p 4298:4298 \
-  -v /path/to/config.json:/app/config.json:ro \
-  -e TZ=Asia/Shanghai \
-  --restart unless-stopped \
-  mcp-gateway:latest
-
-# 3. 查看日志
-docker logs -f mcp-gateway
-
-# 4. 进入容器调试
-docker exec -it mcp-gateway sh
-
-# 5. 停止和删除
-docker stop mcp-gateway && docker rm mcp-gateway
-```
-
-#### Docker 注意事项
-
-> **重要**：Docker 容器内的 MCP 服务器无法直接访问宿主机的程序（如 `uvx`、`node` 等）。如果需要运行本地 MCP 服务器，请使用**主机网络模式**或**在容器内安装相关依赖**。
-
-**使用主机网络**：
-
-```yaml
-services:
-  mcp-gateway:
-    network_mode: host
-    # 注意：使用 host 网络时不需要 ports 配置
-```
+brew 根据用户系统自动选择对应平台的二进制文件。
 
 ---
 
@@ -472,20 +596,17 @@ services:
    # iptables (Linux)
    sudo iptables -A INPUT -p tcp --dport 4298 -s 192.168.1.0/24 -j ACCEPT
    sudo iptables -A INPUT -p tcp --dport 4298 -j DROP
-
-   # ufw (Ubuntu/Debian)
-   sudo ufw allow from 192.168.1.0/24 to any port 4298
    ```
 
 3. **启用 HTTPS**
    - 使用 Nginx/Caddy 反向代理
-   - 或使用 Docker 时配置 Let's Encrypt
 
 ### 配置安全
 
 1. **保护敏感信息**
    - 避免在配置文件中明文存储密钥
    - 使用环境变量代替：
+
    ```json
    {
      "servers": [
@@ -501,27 +622,20 @@ services:
 
 2. **设置配置文件权限**
    ```bash
-   # Linux/macOS
    chmod 600 ~/.config/mcp-gateway/config.json
    ```
 
 3. **以非 root 用户运行**
-   - systemd 服务使用 `User=your-user`
-   - Docker 镜像默认使用 `appuser`
+   - Homebrew 默认使用 `appuser`
 
 ### 服务安全
 
 1. **定期更新**
-   - 关注 GitHub Releases 获取安全更新
    - 使用 `brew upgrade mcp-gateway` 更新 Homebrew 安装
 
 2. **启用日志监控**
    ```bash
-   # 查看最近日志
-   journalctl -u mcp-gateway -n 100 --no-pager
-
-   # 实时跟踪
-   journalctl -u mcp-gateway -f
+   mcp-gateway --log-level debug
    ```
 
 ---
@@ -531,8 +645,6 @@ services:
 ### 常见问题
 
 #### 1. 服务启动失败
-
-**症状**：`mcp-gateway service start` 返回错误。
 
 **排查步骤**：
 
@@ -545,36 +657,24 @@ mcp-gateway --config /path/to/config.json --log-level debug
 
 # 3. 检查端口占用
 lsof -i :4298
-
-# 4. 检查服务日志
-journalctl -u mcp-gateway -n 50 --no-pager
 ```
 
 #### 2. MCP 服务器连接失败
-
-**症状**：`/health` 返回 `initializing` 或工具调用超时。
 
 **排查步骤**：
 
 ```bash
 # 1. 检查 MCP 服务器命令是否可用
-which uvx  # 或其他启动命令
+which uvx
 
 # 2. 手动测试启动命令
 uvx minimax-coding-plan-mcp --help
 
 # 3. 查看详细日志
 mcp-gateway --log-level debug
-
-# 4. 检查环境变量
-echo $PATH
 ```
 
 #### 3. 工具调用返回 503
-
-**症状**：健康检查通过，但工具调用返回 503。
-
-**原因**：连接池未就绪或所有连接都在使用中。
 
 **排查步骤**：
 
@@ -582,178 +682,22 @@ echo $PATH
 # 1. 检查健康状态
 curl http://localhost:4298/health
 
-# 2. 查看连接池状态
-# 在健康检查响应中查看 pool 字段
+# 2. 等待连接池初始化（10-30 秒）
 
-# 3. 等待连接池初始化
-# 通常需要 10-30 秒预热
-
-# 4. 增加连接池大小
-```
-
-#### 4. Docker 容器内 MCP 服务器无法启动
-
-**症状**：Docker 部署时 MCP 服务器一直启动失败。
-
-**原因**：容器内缺少运行时（如 `node`、`uvx` 等）。
-
-**解决方案**：
-
-1. **使用主机网络模式**：
-   ```yaml
-   services:
-     mcp-gateway:
-       network_mode: host
-   ```
-
-2. **在 Dockerfile 中安装依赖**：
-   ```dockerfile
-   FROM golang:alpine AS builder
-   # ... 构建步骤
-
-   FROM alpine:3.19
-   RUN apk --no-cache add ca-certificates tzdata nodejs npm
-   # ... 其他步骤
-   ```
-
-3. **使用远程 MCP 服务器**：
-   ```json
-   {
-     "servers": [
-       {
-         "name": "remote-mcp",
-         "type": "remote",
-         "url": "https://mcp.example.com/sse"
-       }
-     ]
-   }
-   ```
-
-### 日志分析
-
-#### 日志位置
-
-| 安装方式 | 日志路径 |
-|---------|---------|
-| systemd | `journalctl -u mcp-gateway` |
-| Homebrew (macOS) | `~/Library/Logs/mcp-gateway.log` |
-| Docker | `docker logs mcp-gateway` |
-| 直接运行 | 输出到 stderr |
-
-#### 日志级别
-
-| 级别 | 使用场景 |
-|------|---------|
-| `debug` | 排查问题时获取详细信息 |
-| `info` | 正常运行（默认） |
-| `warn` | 存在潜在问题 |
-| `error` | 仅显示错误 |
-
-```bash
-# 使用 debug 级别运行
-mcp-gateway --log-level debug
+# 3. 增加连接池大小
 ```
 
 ### 服务状态诊断
 
 ```bash
-# 查看分层状态
 mcp-gateway service status
-
-# 预期输出示例
-Config: valid (/home/user/.config/mcp-gateway/config.json)
-Install: present
-Registration: loaded
-Process: running
-Health: healthy
-Suggested action: none
 ```
-
-**状态说明**：
-
-| 状态 | 说明 |
-|------|------|
-| `Config: valid` | 配置文件存在且格式正确 |
-| `Install: present` | 服务定义文件存在 |
-| `Registration: loaded` | 已注册到服务管理器 |
-| `Process: running` | 进程正在运行 |
-| `Health: healthy` | 健康检查通过 |
-| `Suggested action` | 建议的修复操作 |
-
-### 性能问题
-
-#### 连接池耗尽
-
-**症状**：请求排队或超时。
-
-**解决**：
-
-1. 增加 `maxConnections`：
-   ```json
-   {
-     "pool": {
-       "maxConnections": 10
-     }
-   }
-   ```
-
-2. 为特定服务器增加 `poolSize`：
-   ```json
-   {
-     "servers": [
-       {
-         "name": "high-traffic-server",
-         "poolSize": 10
-       }
-     ]
-   }
-   ```
-
-#### 内存占用过高
-
-**排查**：
-
-```bash
-# 查看进程内存
-ps aux | grep mcp-gateway
-
-# Docker 环境
-docker stats mcp-gateway
-```
-
-**优化建议**：
-- 减少 `poolSize`
-- 降低 `idleTimeout` 以加快空闲连接回收
-- 限制最大并发连接数
-
----
-
-## 服务管理命令
-
-| 命令 | 说明 |
-|------|------|
-| `mcp-gateway service install` | 安装系统服务 |
-| `mcp-gateway service start` | 启动服务 |
-| `mcp-gateway service stop` | 停止服务 |
-| `mcp-gateway service restart` | 重启服务 |
-| `mcp-gateway service status` | 查看服务状态 |
-| `mcp-gateway service uninstall` | 卸载服务 |
-
-### 退出码
-
-| 退出码 | 含义 | 处理建议 |
-|--------|------|---------|
-| `10` | 配置错误 | 检查配置文件语法和路径 |
-| `20` | 服务未安装 | 运行 `service install` |
-| `30` | 服务注册失败 | 检查权限或服务定义 |
-| `40` | 运行时错误 | 查看日志获取详情 |
-| `50` | 健康检查失败 | 等待初始化或检查端口 |
-| `60` | 服务命令失败 | 检查命令执行权限 |
 
 ---
 
 ## 参考链接
 
 - [GitHub 仓库](https://github.com/lpreterite/mcp-gateway)
+- [Homebrew Tap](https://github.com/lpreterite/homebrew-tap)
 - [安装指南](./installation.md)
 - [配置示例](../config/servers.example.json)
