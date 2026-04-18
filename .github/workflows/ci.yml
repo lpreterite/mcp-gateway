@@ -58,14 +58,15 @@ jobs:
         run: go mod download
 
       - name: Run tests
+        shell: pwsh
         run: |
-          if [ "${{ matrix.short_mode }}" = "true" ]; then
-            echo "Running unit tests (-short mode) on ${{ matrix.os }}"
+          if ($env:short_mode -eq "true") {
+            Write-Host "Running unit tests (-short mode) on $env:OS"
             go test -short -race ./...
-          else
-            echo "Running full integration tests on ${{ matrix.os }}"
+          } else {
+            Write-Host "Running full integration tests on $env:OS"
             go test -race ./...
-          fi
+          }
 
       - name: Run Go vet
         run: go vet ./...
