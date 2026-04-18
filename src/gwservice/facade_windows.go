@@ -70,3 +70,7 @@ func isValidScArg(arg string) bool {
 	}
 	return true
 }
+
+func newFacadePlatformAdapter() PlatformAdapter {
+	return &windowsAdapter{}
+}
