@@ -509,8 +509,11 @@ func TestGracefulShutdownChannel(t *testing.T) {
 	// 注意：不调用 SetupRoutes()，因为 Start() 会调用
 
 	// 启动服务器
-	_ = srv.Start()
-	time.Sleep(100 * time.Millisecond)
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- srv.Start()
+	}()
+	time.Sleep(300 * time.Millisecond)
 
 	// 验证服务器已启动
 	if !srv.isRunning() {
@@ -521,6 +524,15 @@ func TestGracefulShutdownChannel(t *testing.T) {
 	err := srv.Stop()
 	if err != nil {
 		t.Logf("Stop() returned error: %v (may be expected)", err)
+	}
+
+	select {
+	case err := <-errChan:
+		if err != nil && err != http.ErrServerClosed {
+			t.Fatalf("unexpected server error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not stop in time")
 	}
 }
 
@@ -538,8 +550,11 @@ func TestServerMultipleStartStops(t *testing.T) {
 		// 注意：不调用 SetupRoutes()，因为 Start() 会调用
 
 		// 启动
-		_ = srv.Start()
-		time.Sleep(100 * time.Millisecond)
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- srv.Start()
+		}()
+		time.Sleep(300 * time.Millisecond)
 
 		// 验证已启动
 		if !srv.isRunning() {
@@ -550,6 +565,15 @@ func TestServerMultipleStartStops(t *testing.T) {
 		err := srv.Stop()
 		if err != nil {
 			t.Logf("iteration %d: Stop() returned error: %v", i, err)
+		}
+
+		select {
+		case err := <-errChan:
+			if err != nil && err != http.ErrServerClosed {
+				t.Fatalf("iteration %d: unexpected server error: %v", i, err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("iteration %d: server did not stop in time", i)
 		}
 
 		time.Sleep(50 * time.Millisecond)

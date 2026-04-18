@@ -38,6 +38,8 @@ type Server struct {
 	ready    atomic.Bool
 	initErr  atomic.Value
 	initOnce sync.Once
+	stopChan chan struct{} // 用于通知优雅关闭
+	stopped  atomic.Bool   // 标记是否已触发停止
 }
 
 type initServerResult struct {
@@ -56,6 +58,7 @@ func NewServer(cfg *config.Config) *Server {
 		registry: registry.NewRegistry(),
 		mapper:   registry.NewMapper(cfg.Mapping, cfg.ToolFilters),
 		mux:      http.NewServeMux(),
+		stopChan: make(chan struct{}),
 	}
 }
 
@@ -632,9 +635,7 @@ func (s *Server) Start() error {
 		if s.config.Gateway.Host != "" {
 			host = s.config.Gateway.Host
 		}
-		if s.config.Gateway.Port != 0 {
-			port = s.config.Gateway.Port
-		}
+		port = s.config.Gateway.Port
 	}
 
 	addr := fmt.Sprintf("%s:%d", host, port)
@@ -666,9 +667,14 @@ func (s *Server) Start() error {
 func (s *Server) handleGracefulShutdown() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
-	sig := <-sigChan
-	slog.Info("Received signal, initiating graceful shutdown", "signal", sig)
+	select {
+	case sig := <-sigChan:
+		slog.Info("Received signal, initiating graceful shutdown", "signal", sig)
+	case <-s.stopChan:
+		slog.Info("Received stop signal, initiating graceful shutdown")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -692,6 +698,11 @@ func (s *Server) handleGracefulShutdown() {
 
 // Stop 停止服务器
 func (s *Server) Stop() error {
+	// 发送停止信号以唤醒 handleGracefulShutdown
+	if s.stopped.CompareAndSwap(false, true) {
+		close(s.stopChan)
+	}
+
 	s.serverMu.Lock()
 	server := s.server
 	s.serverMu.Unlock()
