@@ -1,3 +1,5 @@
+//go:build darwin
+
 package gwservice
 
 import (
@@ -57,15 +59,6 @@ func (m mockService) Platform() string                                       { r
 func (m mockService) Status() (service.Status, error)                        { return service.StatusUnknown, nil }
 
 // ============ status.go 补充测试 ============
-
-func TestDetectInstallOnUnknownPlatform(t *testing.T) {
-	// 这个测试验证 detectInstall 对未知平台的处理
-	// 模拟未知平台的行为
-	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
-		// 未知平台应该返回 StateUnknown
-		t.Skip("test only for non-darwin/non-linux platforms")
-	}
-}
 
 func TestDetectRegistrationDarwinErrorPath(t *testing.T) {
 	if runtime.GOOS != "darwin" {
