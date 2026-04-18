@@ -34,6 +34,7 @@ type Server struct {
 	mapper   *registry.Mapper
 	mux      *http.ServeMux
 	server   *http.Server
+	serverMu sync.Mutex // 保护 server 字段的读写
 	ready    atomic.Bool
 	initErr  atomic.Value
 	initOnce sync.Once
@@ -208,6 +209,12 @@ func getString(m map[string]interface{}, key string) string {
 	return ""
 }
 
+// sanitizeLogInput 清理日志输入，防止日志注入攻击
+func sanitizeLogInput(input string) string {
+	// 移换行符和回车符，防止日志注入
+	return strings.NewReplacer("\n", "", "\r", "").Replace(input)
+}
+
 // SetupRoutes 设置路由
 func (s *Server) SetupRoutes() {
 	// SSE 端点（支持 GET 建立连接，也支持 POST 发送 JSON-RPC）
@@ -263,8 +270,8 @@ func (s *Server) handleSSEPOST(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("Received SSE JSON-RPC request",
-		"session", sessionID,
-		"method", req.Method,
+		"session", sanitizeLogInput(sessionID),
+		"method", sanitizeLogInput(req.Method),
 	)
 
 	resp := s.processJSONRPCRequest(req)
@@ -311,8 +318,8 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = transport.Close() }()
 
 	slog.Info("SSE connection established",
-		"session", sessionID,
-		"ip", r.RemoteAddr,
+		"session", sanitizeLogInput(sessionID),
+		"ip", sanitizeLogInput(r.RemoteAddr),
 	)
 
 	// 发送初始连接消息
@@ -422,7 +429,12 @@ func (s *Server) processJSONRPCRequest(req JSONRPCToolRequest) JSONRPCResponse {
 
 // handleMessages 处理 JSON-RPC 消息
 func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.URL.Query().Get("sessionId")
+	// 支持从 header 或 URL query 获取 sessionId，与 handleSSEPOST 保持一致
+	sessionID := r.Header.Get("MCP-Session-ID")
+	if sessionID == "" {
+		sessionID = r.URL.Query().Get("sessionId")
+	}
+
 	if sessionID == "" {
 		http.Error(w, "Missing sessionId parameter", http.StatusBadRequest)
 		return
@@ -446,8 +458,8 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slog.Info("Received JSON-RPC request",
-		"session", sessionID,
-		"method", req.Method,
+		"session", sanitizeLogInput(sessionID),
+		"method", sanitizeLogInput(req.Method),
 	)
 
 	resp := s.processJSONRPCRequest(req)
@@ -624,10 +636,13 @@ func (s *Server) Start() error {
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 
+	s.serverMu.Lock()
 	s.server = &http.Server{
-		Addr:    addr,
-		Handler: s.mux,
+		Addr:              addr,
+		Handler:           s.mux,
+		ReadHeaderTimeout: 30 * time.Second,
 	}
+	s.serverMu.Unlock()
 
 	// 启动优雅关闭
 	go s.handleGracefulShutdown()
@@ -655,8 +670,14 @@ func (s *Server) handleGracefulShutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := s.server.Shutdown(ctx); err != nil {
-		slog.Error("Server shutdown error", "error", err)
+	s.serverMu.Lock()
+	server := s.server
+	s.serverMu.Unlock()
+
+	if server != nil {
+		if err := server.Shutdown(ctx); err != nil {
+			slog.Error("Server shutdown error", "error", err)
+		}
 	}
 
 	if err := s.pool.DisconnectAll(); err != nil {
@@ -668,10 +689,21 @@ func (s *Server) handleGracefulShutdown() {
 
 // Stop 停止服务器
 func (s *Server) Stop() error {
-	if s.server != nil {
+	s.serverMu.Lock()
+	server := s.server
+	s.serverMu.Unlock()
+
+	if server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return s.server.Shutdown(ctx)
+		return server.Shutdown(ctx)
 	}
 	return nil
+}
+
+// isRunning 检查服务器是否正在运行（线程安全）
+func (s *Server) isRunning() bool {
+	s.serverMu.Lock()
+	defer s.serverMu.Unlock()
+	return s.server != nil
 }

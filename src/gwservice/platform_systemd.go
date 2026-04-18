@@ -55,7 +55,28 @@ func (a *linuxAdapter) daemonReload() error {
 	return a.systemctl("daemon-reload")
 }
 
+// isValidSystemctlArg 验证 systemctl 参数不包含危险字符
+func isValidSystemctlArg(arg string) bool {
+	if arg == "" {
+		return false
+	}
+	// 检查危险字符：; | & $ ` \n 等
+	dangerous := []string{";", "|", "&", "$", "`", "\\", "\n", "\r", "'", "\"", "!", ">", "<"}
+	for _, d := range dangerous {
+		if strings.Contains(arg, d) {
+			return false
+		}
+	}
+	return true
+}
+
 func (a *linuxAdapter) systemctl(args ...string) error {
+	// 验证所有参数
+	for _, arg := range args {
+		if !isValidSystemctlArg(arg) {
+			return &CommandError{Code: ExitServiceCommandFail, Message: fmt.Sprintf("invalid systemctl argument: %q", arg)}
+		}
+	}
 	cmd := exec.Command("systemctl", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

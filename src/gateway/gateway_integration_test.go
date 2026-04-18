@@ -85,7 +85,7 @@ func TestServerStartAndStop(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	// 验证服务器已启动
-	if srv.server == nil {
+	if !srv.isRunning() {
 		t.Fatal("server should be started")
 	}
 
@@ -513,7 +513,7 @@ func TestGracefulShutdownChannel(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// 验证服务器已启动
-	if srv.server == nil {
+	if !srv.isRunning() {
 		t.Fatal("server should be started")
 	}
 
@@ -542,7 +542,7 @@ func TestServerMultipleStartStops(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// 验证已启动
-		if srv.server == nil {
+		if !srv.isRunning() {
 			t.Fatalf("iteration %d: server should be started", i)
 		}
 

@@ -34,11 +34,11 @@ func (p *program) run() {
 	logFile := filepath.Join(logDir, "mcp-gateway.log")
 
 	// 确保目录存在
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0750); err != nil {
 		slog.Warn("Failed to create log directory", "error", err)
 	}
 
-	f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err == nil {
 		// 注意：在服务运行期间保持文件打开
 		os.Stdout = f

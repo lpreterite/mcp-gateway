@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -361,23 +360,6 @@ func TestContentBlock(t *testing.T) {
 	if decoded.Text != "Hello, World!" {
 		t.Errorf("Text = %q, want 'Hello, World!'", decoded.Text)
 	}
-}
-
-// noFlusherWriter 是一个不支持 Flusher 的 ResponseWriter
-type noFlusherWriter struct {
-	*httptest.ResponseRecorder
-}
-
-func (w *noFlusherWriter) Header() http.Header {
-	return w.ResponseRecorder.Header()
-}
-
-func (w *noFlusherWriter) Write(b []byte) (int, error) {
-	return w.ResponseRecorder.Write(b)
-}
-
-func (w *noFlusherWriter) WriteHeader(statusCode int) {
-	w.ResponseRecorder.WriteHeader(statusCode)
 }
 
 // Note: httptest.ResponseRecorder 实现了 http.Flusher 接口，

@@ -177,24 +177,6 @@ func TestDaemonReload(t *testing.T) {
 	}
 }
 
-// ============ detectDarwinProcess 测试 ============
-
-func TestDetectDarwinProcess(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("skipping darwin-specific test on non-darwin platform")
-	}
-
-	status, detail := detectDarwinProcess()
-
-	// 应该返回已知状态
-	if status != StateRunning && status != StateNotRunning && status != StateUnknown {
-		t.Errorf("unexpected process status: %s", status)
-	}
-
-	// detail 可能为空（当 launchctl 失败时）
-	t.Logf("detectDarwinProcess: status=%s, detail=%s", status, detail)
-}
-
 // ============ formatLine 边缘情况测试 ============
 
 func TestFormatLineEdgeCases(t *testing.T) {

@@ -618,6 +618,81 @@ func TestHandleMessagesInvalidJSON(t *testing.T) {
 	}
 }
 
+// TestHandleMessagesWithSessionHeader 测试通过 MCP-Session-ID header 传递 sessionId
+func TestHandleMessagesWithSessionHeader(t *testing.T) {
+	s := newReadyTestServer(t)
+
+	ch := make(chan string, 10)
+	GlobalNotifier.Add("header-session", ch)
+	defer GlobalNotifier.Remove("header-session")
+
+	reqBody := JSONRPCToolRequest{
+		ID:     1,
+		Method: "initialize",
+		Params: json.RawMessage(`{}`),
+	}
+	body, _ := json.Marshal(reqBody)
+
+	// 通过 MCP-Session-ID header 传递 sessionId，而不是 URL query
+	req := httptest.NewRequest("POST", "/messages", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("MCP-Session-ID", "header-session")
+	w := httptest.NewRecorder()
+
+	s.handleMessages(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+	}
+
+	var resp JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if resp.JSONRPC != "2.0" {
+		t.Errorf("Expected JSONRPC '2.0', got %q", resp.JSONRPC)
+	}
+}
+
+// TestHandleMessagesWithBothSessionParams 测试同时通过 header 和 URL query 传递 sessionId（header 优先）
+func TestHandleMessagesWithBothSessionParams(t *testing.T) {
+	s := newReadyTestServer(t)
+
+	ch := make(chan string, 10)
+	GlobalNotifier.Add("header-session", ch)
+	defer GlobalNotifier.Remove("header-session")
+
+	reqBody := JSONRPCToolRequest{
+		ID:     1,
+		Method: "initialize",
+		Params: json.RawMessage(`{}`),
+	}
+	body, _ := json.Marshal(reqBody)
+
+	// 同时通过 header 和 URL query 传递 sessionId，header 优先
+	req := httptest.NewRequest("POST", "/messages?sessionId=query-session", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("MCP-Session-ID", "header-session")
+	w := httptest.NewRecorder()
+
+	s.handleMessages(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+	}
+
+	// 应该使用的是 header 中的 sessionId，而不是 URL query 中的
+	var resp JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if resp.JSONRPC != "2.0" {
+		t.Errorf("Expected JSONRPC '2.0', got %q", resp.JSONRPC)
+	}
+}
+
 func TestHandleSSEPOST(t *testing.T) {
 	s := newReadyTestServer(t)
 

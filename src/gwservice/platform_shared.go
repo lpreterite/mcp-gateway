@@ -1,3 +1,5 @@
+//go:build darwin
+
 package gwservice
 
 import (
@@ -30,6 +32,10 @@ func darwinLaunchctlPrint() (string, []byte, error) {
 	if err != nil {
 		return "", nil, err
 	}
+	// 验证 target 参数防止命令注入
+	if !isValidLaunchctlArg(target) {
+		return "", nil, fmt.Errorf("invalid launchctl target: %q", target)
+	}
 	cmd := exec.Command("launchctl", "print", target)
 	output, runErr := cmd.CombinedOutput()
 	return target, output, runErr
@@ -41,6 +47,21 @@ func normalizeLaunchctlError(output []byte, err error) string {
 		text = err.Error()
 	}
 	return text
+}
+
+// isValidLaunchctlArg 验证 launchctl 参数不包含危险字符
+func isValidLaunchctlArg(arg string) bool {
+	if arg == "" {
+		return false
+	}
+	// 检查危险字符：; | & $ ` \n 等
+	dangerous := []string{";", "|", "&", "$", "`", "\\", "\n", "\r", "'", "\"", "!", ">", "<"}
+	for _, d := range dangerous {
+		if strings.Contains(arg, d) {
+			return false
+		}
+	}
+	return true
 }
 
 func isLaunchctlMissing(err error) bool {

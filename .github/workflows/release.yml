@@ -54,7 +54,7 @@ jobs:
         id: changelog
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "notes=${{ steps.prepare.outputs.release_notes }}" >> $GITHUB_OUTPUT
+            echo "notes=${{ inputs.version || 'Manual release' }}" >> $GITHUB_OUTPUT
           else
             LAST_TAG=$(git describe --tags --abbrev=0)
             NOTES=$(git log --pretty=format:'* %s (%h)' ${LAST_TAG}..HEAD | head -30)
