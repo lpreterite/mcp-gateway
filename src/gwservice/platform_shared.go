@@ -48,6 +48,7 @@ func darwinLaunchctlPrint() (string, []byte, error) {
 	return target, output, runErr
 }
 
+//nolint:unused // used on darwin only
 func normalizeLaunchctlError(output []byte, err error) string {
 	text := strings.TrimSpace(string(output))
 	if text == "" {
@@ -69,6 +70,7 @@ func isValidLaunchctlArg(arg string) bool {
 	return true
 }
 
+//nolint:unused // used on darwin only
 func isLaunchctlMissing(err error) bool {
 	if err == nil {
 		return false
