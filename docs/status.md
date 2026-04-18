@@ -34,7 +34,7 @@
 |--------|------|--------|------|------|
 | **M1** | Go 核心功能 | Sprint 1-2 | ✅ 完成 | ██████████ 100% |
 | **M2** | 工具链完善 | Sprint 3 | ✅ 完成 | ██████████ 100% |
-| **M3** | Stdio Bridge | Sprint 4 | ⏳ 待开始 | ░░░░░░░░░░ 0% |
+| **M3** | Stdio Bridge | Sprint 4 | 🔄 进行中 | ███████░░░ 80% |
 | **M4** | 服务管理 | Sprint 5 | ✅ 完成 | ██████████ 100% |
 | **M5** | 测试与验证 | Sprint 6 | 🔄 进行中 | █████████░ 90% |
 | **M6** | 发布准备 | Sprint 7 | ⏳ 待开始 | ░░░░░░░░░░ 0% |
@@ -55,10 +55,11 @@
 - [x] 结构化日志完善
 - [x] 优雅关闭
 
-#### M3: Stdio Bridge (⏳ 待开始)
-- [ ] stdio 输入输出监听
-- [ ] 桥接 stdio 协议与 HTTP/SSE
-- [ ] `--stdio` 参数模式
+#### M3: Stdio Bridge (🔄 进行中 - 80%)
+- [x] stdio 输入输出监听 (`src/stdio/bridge.go`)
+- [x] 桥接 stdio 协议与 HTTP/SSE (`src/stdio/server.go`)
+- [x] `--stdio` 参数模式 (`cmd/gateway/main.go`)
+- [ ] 与 Claude Desktop 集成验证
 
 #### M4: 服务管理 (✅ 完成)
 - [x] ServiceFacade 统一命令入口
@@ -108,7 +109,7 @@
 | config | 78.0% | 80% | 🔄 接近达标 |
 | gwservice | 54.6% | 80% | 🔄 进行中 |
 | pool | 6.7% | 80% | 🔄 进行中 |
-| stdio | 0.0% | 80% | ⏳ 未开始 |
+| stdio | 0.0% | 80% | 🔄 进行中 |
 | utils | 0.0% | 80% | ⏳ 未开始 |
 | **整体** | **~35%** | 80% | 🔄 进行中 |
 
@@ -145,7 +146,7 @@
 | 1 | playwright/lark 的 npx 启动问题 (broken pipe) | P1 | ⏳ 待调查 | M5 |
 | 2 | ~~OpenCode MCP 工具调用验证~~ | P1 | ✅ 已解决 | M5 |
 | 3 | ~~本地服务 API 接口测试~~ | P1 | ✅ 已验证 | M5 |
-| 4 | Stdio Bridge 未实现 | P1 | ⏳ 待开始 | M3 |
+| 4 | Stdio Bridge 核心功能已实现，待集成验证 | P1 | 🔄 进行中 | M3 |
 | 5 | gwservice/pool 覆盖率需进一步提升 | P2 | 🔄 进行中 | M5 |
 | 6 | architecture.md 文档需更新为 Go 版本 | P2 | ⏳ 待开始 | M6 |
 
