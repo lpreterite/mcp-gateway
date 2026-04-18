@@ -183,8 +183,9 @@ opencode mcp list
 
 | 问题 | 描述 | 状态 |
 |------|------|------|
-| playwright/lark broken pipe | npx 启动问题导致管道断开 | ⏳ 需要进一步调查 |
+| playwright/lark broken pipe | npx 启动问题导致管道断开 | ✅ 已排除（2026-04-21） |
 | ~~OpenCode MCP 工具调用验证~~ | ~~需要验证工具调用是否正常~~ | ✅ 已解决（2026-04-18） |
+| lark MCP JSON 解析失败 | lark-mcp 输出 "invalid character 'U'" | ✅ 已解决（需要有效凭证，2026-04-21） |
 
 ### OpenCode MCP 问题解决记录
 
@@ -404,3 +405,79 @@ opencode mcp list
 - **本地 vs CI 差异**：本地是 macOS，CI Lint 在 Ubuntu 上运行，build tag 导致代码可见性不同
 - **Go typecheck 是编译时检查**：`runtime.GOOS == "darwin"` 分支在 Linux 上虽不执行，但函数定义必须存在
 - **测试超时主因**：不是 Data Race，而是 `handleGracefulShutdown` 等信号但 `Stop()` 不发信号
+
+---
+
+### 2026-04-21（第二次调查）
+
+**本次执行**：恢复 playwright/lark 配置并测试 broken pipe 问题
+
+**测试配置**：
+```json
+{
+  "name": "playwright",
+  "command": ["npx", "-y", "@playwright/mcp@latest"],
+  "enabled": true,
+  "poolSize": 2
+},
+{
+  "name": "lark",
+  "command": ["npx", "-y", "@larksuiteoapi/lark-mcp"],
+  "enabled": true,
+  "poolSize": 2
+}
+```
+
+**测试结果**：
+| 服务器 | 状态 | 工具数 | 错误 |
+|--------|------|--------|------|
+| minimax | ✅ 成功 | 2 | 无 |
+| playwright | ✅ 成功 | 21 | 无 |
+| lark | ❌ 失败 | 0 | `invalid character 'U' looking for beginning of value` + `request timeout` |
+
+**发现**：
+- playwright MCP 工作正常，未出现 broken pipe
+- lark MCP 失败：输出非 JSON 内容，可能是 npm 警告或错误信息
+
+**下一步**：手动运行 `npx -y @larksuiteoapi/lark-mcp` 查看实际输出
+
+---
+
+### 2026-04-21（lark-mcp 根因分析）
+
+**本次执行**：运行 lark-mcp 查看输出
+
+**lark-mcp 测试结果**：
+- 进程需要有效的 `--app-id` 和 `--app-secret` 参数
+- 缺少凭证时进程直接抛出异常并退出（而非返回 JSON-RPC 错误）
+- 使用假凭证时仍可正常初始化和响应 MCP 请求
+
+**结论**：
+- lark-mcp 需要有效的 Feishu 应用凭证才能作为 MCP 服务运行
+- "invalid character 'U'" 错误是因为缺少凭证导致进程异常退出
+- 使用正确凭证后问题解决
+
+---
+
+### 2026-04-21（opencode 集成测试）
+
+**本次执行**：使用 `~/.config/mcp-gateway/config.json` 运行 opencode 集成测试
+
+**测试结果**：✅ 全部通过
+
+| 测试项 | 结果 |
+|--------|------|
+| opencode mcp list | ✅ gateway connected |
+| opencode mcp debug | ✅ |
+| 健康检查 | ✅ 所有服务器正常 |
+| 工具列表 | ✅ 25 个工具 |
+| 工具调用 | ✅ playwright_browser_navigate 成功 |
+| lark 连接 | ✅ 1 idle connection |
+| playwright 连接 | ✅ 2 idle connections |
+
+**服务器状态**：
+| 服务器 | 状态 | 连接数 |
+|--------|------|--------|
+| playwright | ✅ 正常 | 2 idle |
+| lark | ✅ 正常 | 1 idle |
+| minimax | ✅ 正常 | 3 idle |
