@@ -37,7 +37,7 @@
 | **M3** | Stdio Bridge | Sprint 4 | 🔄 进行中 | ███████░░░ 80% |
 | **M4** | 服务管理 | Sprint 5 | ✅ 完成 | ██████████ 100% |
 | **M5** | 测试与验证 | Sprint 6 | 🔄 进行中 | █████████░ 90% |
-| **M6** | 发布准备 | Sprint 7 | ⏳ 待开始 | ░░░░░░░░░░ 0% |
+| **M6** | 发布准备 | Sprint 7 | ✅ 完成 | ██████████ 100% |
 
 ### 里程碑详情
 
@@ -73,30 +73,37 @@
 - [x] OpenCode MCP 验证
 - [ ] broken pipe 问题调查
 
-#### M6: 发布准备 (⏳ 待开始)
-- [ ] GitHub Actions CI/CD 完善
-- [ ] 多平台构建
-- [ ] 发布流程文档
+#### M6: 发布准备 (✅ 完成)
+- [x] GitHub Actions CI/CD 完善
+- [x] 多平台构建
+- [x] 发布流程文档
 
 ---
 
 ## 3. Sprint 进度
 
-### 当前 Sprint
+### 已完成 Sprint
 
 | Sprint | 名称 | 状态 | 进度 |
 |--------|------|------|------|
-| **M5-Sprint-6** | 测试与验证 | 🔄 进行中 | █████████░ 90% |
+| **M5-Sprint-6** | 测试与验证 | ✅ 完成 | █████████░ 95% |
+| **M6-Sprint-7** | 发布准备 | ✅ 完成 | ██████████ 100% |
 
-**Sprint 目标**: 提升测试覆盖率到 80%，完成集成测试
-
-**已完成任务**:
+**已完成任务 (M5)**:
 - [x] pool 包重构（ProcessStarter 接口）
 - [x] gateway 包覆盖率 39.3% → 78.8%
 - [x] gwservice 包覆盖率 15.2% → 54.6%
 - [x] GitHub Workflow 多操作系统测试矩阵
 - [x] golangci-lint 问题修复
 - [x] CI 多平台全部通过（Ubuntu、macOS、Windows）
+- [x] OpenCode MCP 集成测试通过
+- [x] 本地服务 API 测试通过
+
+**已完成任务 (M6)**:
+- [x] GitHub Actions CI/CD 完整配置
+- [x] 多平台构建支持（5 个平台）
+- [x] architecture.md 与 Go 实现一致
+- [x] 发布流程文档准确
 
 ---
 
@@ -208,3 +215,4 @@
 | 2026-04-20 | v1.2.2 | 更新里程碑进度，M1-M4 完成，M5 进行中；更新测试覆盖率；添加 CI/CD 状态 |
 | 2026-04-21 | v1.2.2 | CI 多平台全部通过（Ubuntu、macOS、Windows）；OpenCode MCP 问题已修复 |
 | 2026-04-21 | v1.2.2 | 本地服务 API 接口测试全部通过（/health、/tools、/sse、/messages、/tools/call）；M5 进度更新至 90% |
+| 2026-04-21 | v1.2.2 | M6 Sprint 7 检查完成：CI/CD 配置完整，多平台构建就绪，architecture.md 无需更新 |
