@@ -78,7 +78,7 @@
 
 ## 待解决问题
 
-- ⏳ playwright/lark 的 npx 启动问题（broken pipe）→ **根因已定位为 Pool 初始化握手失败，详见 [ISSUE-001](./ISSUE-001-pool-initialize-handshake.md)**
+- ✅ ~~playwright/lark 的 npx 启动问题（broken pipe）~~ → **根因 Pool 初始化握手失败已修复并验证通过，详见 [ISSUE-001](./ISSUE-001-pool-initialize-handshake.md)**
 - ⏳ OpenCode MCP 工具调用验证
 - ⏳ architecture.md 文档需要更新为 Go 版本
 - ⏳ Stdio Bridge 未实现
@@ -89,4 +89,4 @@
 
 | 编号 | 问题 | 优先级 | 状态 | 文档 |
 |------|------|--------|------|------|
-| ISSUE-001 | Pool 初始化握手失败 | P0 | 🔄 修复中 | [ISSUE-001-pool-initialize-handshake.md](./ISSUE-001-pool-initialize-handshake.md) |
+| ISSUE-001 | Pool 初始化握手失败 | P0 | ✅ 已修复并验证通过 | [ISSUE-001-pool-initialize-handshake.md](./ISSUE-001-pool-initialize-handshake.md) |
