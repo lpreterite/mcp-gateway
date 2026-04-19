@@ -70,7 +70,7 @@ func (c *MCPClientConnection) Connect(ctx context.Context) error {
 	cmdArgs := c.config.Command[1:]
 
 	// 启动进程
-	process, err := starter.Start(ctx, cmdPath, cmdArgs)
+	process, err := starter.Start(ctx, cmdPath, cmdArgs, c.config.Env)
 	if err != nil {
 		return fmt.Errorf("failed to start process: %w", err)
 	}
@@ -78,6 +78,7 @@ func (c *MCPClientConnection) Connect(ctx context.Context) error {
 	c.process = process
 
 	go c.readResponses()
+	go c.readStderr()
 
 	c.connected = true
 	c.lastUsed = time.Now()
@@ -111,7 +112,7 @@ func (c *MCPClientConnection) Initialize() error {
 		return fmt.Errorf("initialize failed: %w", err)
 	}
 
-	c.sendNotificationLocked("initialized", map[string]interface{}{})
+	c.sendNotificationLocked("notifications/initialized", map[string]interface{}{})
 
 	slog.Info("MCP client initialized",
 		"server", c.config.Name,
@@ -187,6 +188,23 @@ func (c *MCPClientConnection) sendNotificationLocked(method string, params inter
 	data = append(data, '\n')
 	if _, err := c.process.Stdin().Write(data); err != nil {
 		slog.Error("Failed to write to stdin", "error", err)
+	}
+}
+
+// readStderr 异步读取 stderr
+func (c *MCPClientConnection) readStderr() {
+	buf := make([]byte, 4096)
+	for {
+		n, err := c.process.Stderr().Read(buf)
+		if n > 0 {
+			slog.Warn("MCP server stderr",
+				"server", c.config.Name,
+				"output", string(buf[:n]),
+			)
+		}
+		if err != nil {
+			break
+		}
 	}
 }
 
