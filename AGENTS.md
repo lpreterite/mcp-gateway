@@ -11,3 +11,13 @@
 - docs/ai-engineering/checklists.md — 检查清单
 - docs/ai-engineering/deliverables.md — 产出物要求
 - docs/ai-engineering/document-management.md — 文档管理
+
+## 版本发布流程
+
+打 tag 和推送前**必须**先运行验证：
+
+```bash
+make check
+```
+
+验证通过后才能执行 commit、tag、push。验证不通过则修复后再验证，不允许跳过。

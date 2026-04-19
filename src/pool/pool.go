@@ -557,7 +557,9 @@ func (p *Pool) acquire(serverName string) (*MCPClientConnection, error) {
 						"server", serverName,
 						"error", err,
 					)
-					client.Disconnect()
+					if err := client.Disconnect(); err != nil {
+						slog.Warn("Failed to disconnect client", "error", err)
+					}
 					p.mu.Unlock()
 				} else {
 					pool = append(pool, client)
