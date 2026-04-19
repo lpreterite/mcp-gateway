@@ -6,6 +6,7 @@
 
 ### 修复
 
+- **CI 测试修复** (`src/pool/starter_test.go`): 修复 Linux 平台 `TMPDIR` fallback 测试失败问题，以及 Windows 平台路径解析 (`filepath.IsAbs`) 和系统 Shell 测试断言问题。
 - **launchd 环境变量缺失** (`src/pool/starter.go`): launchd 提供最小环境（仅 PATH），子进程（npx/uvx）缺少关键环境变量无法正常工作。新增 `fetchLoginShellEnv()` 通过 login shell 获取真实系统环境，`ensureEssentialEnv()` 用 login shell 结果补充缺失变量，失败时 fallback 到硬编码默认值。
 - **config.Env 未传递给子进程** (`src/pool/starter.go`): `buildChildEnv()` 合并三层环境变量来源（os.Environ → ensureEssentialEnv 补充 → config.json env 字段），config.json 中的 env 字段现在能正确生效。
 - **子进程 stderr 日志输出** (`src/pool/pool.go`): 新增 `readStderr()` 协程，将子进程 stderr 输出到日志，便于诊断启动失败。
