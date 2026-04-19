@@ -2,6 +2,8 @@ package pool
 
 import (
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -108,7 +110,7 @@ func TestEnsureEssentialEnv_HomeFromLoginShell(t *testing.T) {
 	if home == "" {
 		t.Error("HOME should be set when missing from input map")
 	}
-	if !strings.HasPrefix(home, "/") {
+	if !filepath.IsAbs(home) {
 		t.Errorf("HOME should be an absolute path, got %q", home)
 	}
 }
@@ -265,6 +267,10 @@ func TestEnsureEssentialEnv_AllEssentialPresent(t *testing.T) {
 }
 
 func TestFetchLoginShellEnv(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("login shell env is not typically available on Windows")
+	}
+
 	env := fetchLoginShellEnv()
 	if env == nil {
 		t.Fatal("fetchLoginShellEnv should return non-nil map on this system")
