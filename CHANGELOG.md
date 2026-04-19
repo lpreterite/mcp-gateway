@@ -2,6 +2,25 @@
 
 所有对项目的显著更改都将记录在此文件中。
 
+## [1.2.6] - 2026-04-19
+
+### 修复
+
+- **launchd 环境变量缺失** (`src/pool/starter.go`): launchd 提供最小环境（仅 PATH），子进程（npx/uvx）缺少关键环境变量无法正常工作。新增 `fetchLoginShellEnv()` 通过 login shell 获取真实系统环境，`ensureEssentialEnv()` 用 login shell 结果补充缺失变量，失败时 fallback 到硬编码默认值。
+- **config.Env 未传递给子进程** (`src/pool/starter.go`): `buildChildEnv()` 合并三层环境变量来源（os.Environ → ensureEssentialEnv 补充 → config.json env 字段），config.json 中的 env 字段现在能正确生效。
+- **子进程 stderr 日志输出** (`src/pool/pool.go`): 新增 `readStderr()` 协程，将子进程 stderr 输出到日志，便于诊断启动失败。
+- **MCP 协议 notification 名称** (`src/pool/pool.go`): `initialized` 修正为 `notifications/initialized`。
+- **errcheck lint** (`src/pool/pool.go`): `client.Disconnect()` 返回值未检查，已修复。
+
+### 新增
+
+- **starter_test.go**: 新增 22 个测试用例，覆盖 `buildChildEnv`、`ensureEssentialEnv`、`fetchLoginShellEnv` 等函数。
+
+### 文档
+
+- 新增 ISSUE-002 问题追踪文档
+- AGENTS.md 添加版本发布验证流程规则（`make check` → commit → tag → push）
+
 ## [1.2.5] - 2026-04-19
 
 ### 修复
