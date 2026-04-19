@@ -351,7 +351,7 @@ func (c *MCPClientConnection) ListTools() ([]map[string]interface{}, error) {
 }
 
 // CallTool 调用工具
-func (c *MCPClientConnection) CallTool(name string, args map[string]interface{}) (map[string]interface{}, error) {
+func (c *MCPClientConnection) CallTool(name string, args map[string]interface{}) (*ToolCallResult, error) {
 	params := map[string]interface{}{
 		"name":      name,
 		"arguments": args,
@@ -363,13 +363,13 @@ func (c *MCPClientConnection) CallTool(name string, args map[string]interface{})
 	}
 
 	// 解析结果
-	var toolResult map[string]interface{}
+	var toolResult ToolCallResult
 	if err := json.Unmarshal(*result, &toolResult); err != nil {
 		return nil, fmt.Errorf("failed to parse tool result: %w", err)
 	}
 
 	c.lastUsed = time.Now()
-	return toolResult, nil
+	return &toolResult, nil
 }
 
 // Disconnect 断开连接
