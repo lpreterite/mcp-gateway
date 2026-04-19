@@ -2,6 +2,18 @@
 
 所有对项目的显著更改都将记录在此文件中。
 
+## [1.3.0] - 2026-04-19
+
+### 修复
+
+- **Pool 连接初始化时序** (`src/pool/pool.go`): 移除 `Connect()` 中硬编码的 `time.Sleep(100ms)`，改为先启动 `readResponses` 协程再标记 connected。npx/uvx 类慢启动服务（playwright、lark、minimax 等）不再因握手超时而注册失败。
+- **JSON-RPC notification 与 response ID 冲突** (`src/pool/pool.go`): `handleResponse` 中 `ID` 类型从 `int` 改为 `*int`，notification（无 `id` 字段）反序列化后为 `nil` 直接跳过，避免与 request id=0 冲突导致 searxng 等发 notification 的服务超时。
+- **连接池按需创建连接缺少握手** (`src/pool/pool.go`): `acquire()` 创建新连接后增加 `Initialize()` 调用，确保新连接完成 MCP 握手后才返回使用。
+
+### 文档
+
+- 新增 ISSUE-001 问题追踪文档
+
 ## [1.2.4] - 2026-04-18
 
 ### 修复

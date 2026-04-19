@@ -13,7 +13,7 @@
 | **项目描述** | MCP 统一网关 - 连接多个 MCP 服务器的统一网关，支持 HTTP/SSE 和 stdio 两种连接方式 |
 | **当前版本** | `v1.2.2` |
 | **开发状态** | 🚧 Development |
-| **Git 分支** | `fix/mcp-initialize-handshake` |
+| **Git 分支** | `main`（`fix/mcp-initialize-handshake` 待合并） |
 | **许可证** | MIT |
 
 ### 核心技术栈
@@ -150,12 +150,21 @@
 
 | # | 问题 | 优先级 | 状态 | 关联 |
 |---|------|--------|------|------|
-| 1 | playwright/lark 的 npx 启动问题 (broken pipe) | P1 | ⏳ 待调查 | M5 |
+| 1 | ~~playwright/lark 的 npx 启动问题 (broken pipe)~~ | ~~P1~~ | ✅ 已定位根因 | M5 |
 | 2 | ~~OpenCode MCP 工具调用验证~~ | P1 | ✅ 已解决 | M5 |
 | 3 | ~~本地服务 API 接口测试~~ | P1 | ✅ 已验证 | M5 |
 | 4 | Stdio Bridge 核心功能已实现，待集成验证 | P1 | 🔄 进行中 | M3 |
 | 5 | gwservice/pool 覆盖率需进一步提升 | P2 | 🔄 进行中 | M5 |
 | 6 | architecture.md 文档需更新为 Go 版本 | P2 | ⏳ 待开始 | M6 |
+| **7** | **Pool 初始化握手失败（根因已定位，修复待验证）** | **P0** | **🔄 修复中** | **M5** |
+
+### 问题 #7 详细说明
+
+**根因**：`src/pool/pool.go` 中 Connect() 硬编码 100ms 等待、Initialize() 超时后连接被丢弃、acquire() 缺少 Initialize() 握手。导致 npx/uvx 类慢启动服务全部无法连接。
+
+**影响**：8 个 MCP 服务中仅 pencil（原生二进制）成功加载，其余 5 个服务全部失败。
+
+**状态**：代码已修改（工作区 `src/pool/pool.go`），待验证。详见 [ISSUE-001](./tasks/ISSUE-001-pool-initialize-handshake.md)。
 
 ---
 
@@ -216,3 +225,4 @@
 | 2026-04-21 | v1.2.2 | CI 多平台全部通过（Ubuntu、macOS、Windows）；OpenCode MCP 问题已修复 |
 | 2026-04-21 | v1.2.2 | 本地服务 API 接口测试全部通过（/health、/tools、/sse、/messages、/tools/call）；M5 进度更新至 90% |
 | 2026-04-21 | v1.2.2 | M6 Sprint 7 检查完成：CI/CD 配置完整，多平台构建就绪，architecture.md 无需更新 |
+| 2026-04-18 | v1.2.4 | 新增 ISSUE-001：Pool 初始化握手失败根因分析，问题 #1 升级为根因已定位；更新待解决问题列表 |

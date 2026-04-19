@@ -76,7 +76,8 @@ func (c *MCPClientConnection) Connect(ctx context.Context) error {
 	}
 
 	c.process = process
-	time.Sleep(100 * time.Millisecond)
+
+	go c.readResponses()
 
 	c.connected = true
 	c.lastUsed = time.Now()
@@ -85,9 +86,6 @@ func (c *MCPClientConnection) Connect(ctx context.Context) error {
 		"server", c.config.Name,
 		"command", c.config.Command,
 	)
-
-	// 启动读取协程
-	go c.readResponses()
 
 	return nil
 }
@@ -219,9 +217,8 @@ func (c *MCPClientConnection) readResponses() {
 
 // handleResponse 处理响应
 func (c *MCPClientConnection) handleResponse(response *json.RawMessage) {
-	// 解析为 JSON-RPC 响应
 	var rpcResp struct {
-		ID     int              `json:"id"`
+		ID     *int             `json:"id"`
 		Result *json.RawMessage `json:"result,omitempty"`
 		Error  *json.RawMessage `json:"error,omitempty"`
 	}
@@ -234,11 +231,14 @@ func (c *MCPClientConnection) handleResponse(response *json.RawMessage) {
 		return
 	}
 
-	// 查找对应的 pending channel
+	if rpcResp.ID == nil {
+		return
+	}
+
 	c.pendingMu.Lock()
-	ch, ok := c.pending[rpcResp.ID]
+	ch, ok := c.pending[*rpcResp.ID]
 	if ok {
-		delete(c.pending, rpcResp.ID)
+		delete(c.pending, *rpcResp.ID)
 	}
 	c.pendingMu.Unlock()
 
@@ -246,7 +246,6 @@ func (c *MCPClientConnection) handleResponse(response *json.RawMessage) {
 		if rpcResp.Result != nil {
 			ch <- rpcResp.Result
 		} else if rpcResp.Error != nil {
-			// 返回错误
 			ch <- rpcResp.Error
 		}
 	}
@@ -534,6 +533,13 @@ func (p *Pool) acquire(serverName string) (*MCPClientConnection, error) {
 						"server", serverName,
 						"error", err,
 					)
+					p.mu.Unlock()
+				} else if err := client.Initialize(); err != nil {
+					slog.Warn("Failed to initialize new connection",
+						"server", serverName,
+						"error", err,
+					)
+					client.Disconnect()
 					p.mu.Unlock()
 				} else {
 					pool = append(pool, client)
