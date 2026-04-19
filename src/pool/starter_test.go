@@ -3,6 +3,7 @@ package pool
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -308,6 +309,36 @@ func TestEnsureEssentialEnv_LoginShellDoesNotOverwrite(t *testing.T) {
 
 	if envMap["HOME"] != "/preserved/home" {
 		t.Errorf("login shell env should not overwrite existing HOME: got %q", envMap["HOME"])
+	}
+}
+
+func TestEnsureEssentialEnv_LoginShellMissingTmpdirFallsBack(t *testing.T) {
+	originalEnv := loginShellEnv
+
+	loginShellEnv = map[string]string{
+		"HOME": "/shell/home",
+		"USER": "shell-user",
+		"PATH": "/shell/bin:/usr/bin",
+	}
+	loginShellEnvOnce = sync.Once{}
+	loginShellEnvOnce.Do(func() {})
+
+	t.Cleanup(func() {
+		loginShellEnv = originalEnv
+		loginShellEnvOnce = sync.Once{}
+	})
+
+	envMap := make(map[string]string)
+	ensureEssentialEnv(envMap)
+
+	if envMap["HOME"] != "/shell/home" {
+		t.Errorf("HOME should still come from login shell: got %q", envMap["HOME"])
+	}
+	if envMap["TMPDIR"] == "" {
+		t.Error("TMPDIR should fall back when login shell env does not provide it")
+	}
+	if envMap["LANG"] == "" {
+		t.Error("LANG should fall back when login shell env does not provide it")
 	}
 }
 

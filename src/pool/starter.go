@@ -118,13 +118,10 @@ func ensureEssentialEnv(envMap map[string]string) {
 		loginShellEnv = fetchLoginShellEnv()
 	})
 
-	if loginShellEnv != nil {
-		for k, v := range loginShellEnv {
-			if _, ok := envMap[k]; !ok {
-				envMap[k] = v
-			}
+	for k, v := range loginShellEnv {
+		if _, ok := envMap[k]; !ok {
+			envMap[k] = v
 		}
-		return
 	}
 
 	if _, ok := envMap["HOME"]; !ok {
